@@ -1,16 +1,32 @@
-<div align="center">
+<p align="center">
+  <img src="image/banner.png" width="700" alt="Codex Autoresearch">
+</p>
 
-# Codex Autoresearch
+<h2 align="center"><b>瞄准。迭代。抵达。</b></h2>
 
-[Codex](https://openai.com/codex) 的自主迭代协议。定义目标、指标和验证命令 -- Codex 处理剩下的一切。
+<p align="center">
+  <i>Codex 的自主目标驱动实验引擎。</i>
+</p>
 
-[![Codex Skill](https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white)](https://developers.openai.com/codex/skills)
-[![GitHub Stars](https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social)](https://github.com/leo-lilinxiao/codex-autoresearch)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<p align="center">
+  <a href="https://developers.openai.com/codex/skills"><img src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white" alt="Codex Skill"></a>
+  <a href="https://github.com/leo-lilinxiao/codex-autoresearch"><img src="https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social" alt="GitHub Stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
+</p>
 
-[架构](#架构) . [30秒上手](#30秒上手) . [模式](#模式) . [配置](#配置) . [操作手册](GUIDE.md) . [配方集](EXAMPLES.md)
+<p align="center">
+  <a href="README.md">English</a> ·
+  <b>中文</b>
+</p>
 
-</div>
+<p align="center">
+  <a href="#架构">架构</a> ·
+  <a href="#30秒上手">30秒上手</a> ·
+  <a href="#模式">模式</a> ·
+  <a href="#配置">配置</a> ·
+  <a href="GUIDE.md">操作手册</a> ·
+  <a href="EXAMPLES.md">配方集</a>
+</p>
 
 ---
 

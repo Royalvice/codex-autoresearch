@@ -1,16 +1,32 @@
-<div align="center">
+<p align="center">
+  <img src="image/banner.png" width="700" alt="Codex Autoresearch">
+</p>
 
-# Codex Autoresearch
+<h2 align="center"><b>Aim. Iterate. Arrive.</b></h2>
 
-Autonomous iteration protocol for [Codex](https://openai.com/codex). Define a goal, a metric, and a verify command -- Codex handles the rest.
+<p align="center">
+  <i>Autonomous goal-driven experimentation for Codex.</i>
+</p>
 
-[![Codex Skill](https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white)](https://developers.openai.com/codex/skills)
-[![GitHub Stars](https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social)](https://github.com/leo-lilinxiao/codex-autoresearch)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<p align="center">
+  <a href="https://developers.openai.com/codex/skills"><img src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white" alt="Codex Skill"></a>
+  <a href="https://github.com/leo-lilinxiao/codex-autoresearch"><img src="https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social" alt="GitHub Stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
+</p>
 
-[Architecture](#architecture) . [30-Second Start](#30-second-start) . [Modes](#modes) . [Configuration](#configuration) . [Guide](GUIDE.md) . [Recipes](EXAMPLES.md)
+<p align="center">
+  <b>English</b> ·
+  <a href="README_ZH.md">中文</a>
+</p>
 
-</div>
+<p align="center">
+  <a href="#architecture">Architecture</a> ·
+  <a href="#30-second-start">30-Second Start</a> ·
+  <a href="#modes">Modes</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="GUIDE.md">Guide</a> ·
+  <a href="EXAMPLES.md">Recipes</a>
+</p>
 
 ---
 
