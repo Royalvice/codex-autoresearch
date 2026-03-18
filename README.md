@@ -16,17 +16,72 @@
 
 <p align="center">
   <b>English</b> ·
-  <a href="README_ZH.md">中文</a>
+  <a href="docs/README_ZH.md">中文</a> ·
+  <a href="docs/README_JA.md">日本語</a> ·
+  <a href="docs/README_KO.md">한국어</a> ·
+  <a href="docs/README_FR.md">Français</a> ·
+  <a href="docs/README_DE.md">Deutsch</a> ·
+  <a href="docs/README_ES.md">Español</a> ·
+  <a href="docs/README_PT.md">Português</a> ·
+  <a href="docs/README_RU.md">Русский</a>
 </p>
 
 <p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#what-it-does">What It Does</a> ·
   <a href="#architecture">Architecture</a> ·
-  <a href="#30-second-start">30-Second Start</a> ·
   <a href="#modes">Modes</a> ·
   <a href="#configuration">Configuration</a> ·
   <a href="GUIDE.md">Guide</a> ·
   <a href="EXAMPLES.md">Recipes</a>
 </p>
+
+---
+
+## Quick Start
+
+**1. Install:**
+
+```bash
+git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
+cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
+```
+
+Or use the skill installer in Codex:
+```text
+$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
+```
+
+**2. Open Codex in your project and say what you want:**
+
+```text
+$codex-autoresearch
+I want to get rid of all the `any` types in my TypeScript code
+```
+
+**3. Codex scans, confirms, then iterates autonomously:**
+
+```
+Codex: I found 47 `any` occurrences across src/**/*.ts.
+
+       Confirmed:
+       - Target: eliminate `any` types in src/**/*.ts
+       - Metric: `any` count (current: 47), direction: lower
+       - Verify: grep + tsc --noEmit as guard
+
+       Need to confirm:
+       - Run until all gone, or cap at N iterations?
+
+       Reply "go" to start, or tell me what to change.
+
+You:   Go, run overnight.
+
+Codex: Starting -- baseline: 47. Iterating until interrupted.
+```
+
+Each improvement stacks. Each failure reverts. Everything is logged.
+
+See [INSTALL.md](INSTALL.md) for more install options. See [GUIDE.md](GUIDE.md) for full operator's manual.
 
 ---
 
@@ -103,59 +158,6 @@ LOOP (forever or N times):
   7. Log the result
   8. Repeat. Never stop. Never ask.
 ```
-
----
-
-## 30-Second Start
-
-**1. Install:**
-
-Clone and copy into your project:
-```bash
-git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
-```
-
-Or use the skill installer in Codex:
-```text
-$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
-```
-
-**2. Open Codex in your project and run:**
-
-Just tell Codex what you want:
-
-```text
-$codex-autoresearch
-I want to get rid of all the `any` types in my TypeScript code
-```
-
-Codex scans your repo, then **always** asks to confirm before starting -- even if the goal seems clear:
-
-```
-Codex: I found 47 `any` occurrences across src/**/*.ts.
-
-       Confirmed:
-       - Target: eliminate `any` types in src/**/*.ts
-       - Metric: `any` count (current: 47), direction: lower
-       - Verify: grep + tsc --noEmit as guard
-
-       Need to confirm:
-       - Run until all gone, or cap at N iterations?
-       - Any other safety checks beyond tsc?
-
-       Next step: reply "go" to start, or tell me what to change.
-
-You:   Go, run overnight.
-
-Codex: Starting -- baseline: 47. I'll keep going until you stop me.
-```
-
-Each improvement stacks. Each failure reverts. Everything is logged.
-
-For power users, structured key-value configuration is also supported -- see [GUIDE.md](GUIDE.md).
-
-See [INSTALL.md](INSTALL.md) for symlink and development install options.
 
 ---
 
@@ -419,7 +421,6 @@ Progress summaries print every 5 iterations. Bounded runs print a final baseline
 codex-autoresearch/
   SKILL.md                          # skill entrypoint (loaded by Codex)
   README.md                         # this file
-  README_ZH.md                      # Chinese documentation
   INSTALL.md                        # installation guide
   GUIDE.md                          # operator's manual
   EXAMPLES.md                       # recipes by domain
@@ -427,6 +428,17 @@ codex-autoresearch/
   LICENSE                           # MIT
   agents/
     openai.yaml                     # Codex UI metadata
+  image/
+    banner.png                      # project banner
+  docs/
+    README_ZH.md                    # Chinese
+    README_JA.md                    # Japanese
+    README_KO.md                    # Korean
+    README_FR.md                    # French
+    README_DE.md                    # German
+    README_ES.md                    # Spanish
+    README_PT.md                    # Portuguese
+    README_RU.md                    # Russian
   scripts/
     validate_skill_structure.sh     # structure validator
   references/

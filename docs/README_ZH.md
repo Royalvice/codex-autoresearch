@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="image/banner.png" width="700" alt="Codex Autoresearch">
+  <img src="../image/banner.png" width="700" alt="Codex Autoresearch">
 </p>
 
 <h2 align="center"><b>瞄准。迭代。抵达。</b></h2>
@@ -11,22 +11,77 @@
 <p align="center">
   <a href="https://developers.openai.com/codex/skills"><img src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white" alt="Codex Skill"></a>
   <a href="https://github.com/leo-lilinxiao/codex-autoresearch"><img src="https://img.shields.io/github/stars/leo-lilinxiao/codex-autoresearch?style=social" alt="GitHub Stars"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
-  <b>中文</b>
+  <a href="../README.md">English</a> ·
+  <b>中文</b> ·
+  <a href="README_JA.md">日本語</a> ·
+  <a href="README_KO.md">한국어</a> ·
+  <a href="README_FR.md">Français</a> ·
+  <a href="README_DE.md">Deutsch</a> ·
+  <a href="README_ES.md">Español</a> ·
+  <a href="README_PT.md">Português</a> ·
+  <a href="README_RU.md">Русский</a>
 </p>
 
 <p align="center">
+  <a href="#快速上手">快速上手</a> ·
+  <a href="#它做什么">它做什么</a> ·
   <a href="#架构">架构</a> ·
-  <a href="#30秒上手">30秒上手</a> ·
   <a href="#模式">模式</a> ·
   <a href="#配置">配置</a> ·
-  <a href="GUIDE.md">操作手册</a> ·
-  <a href="EXAMPLES.md">配方集</a>
+  <a href="../GUIDE.md">操作手册</a> ·
+  <a href="../EXAMPLES.md">配方集</a>
 </p>
+
+---
+
+## 快速上手
+
+**1. 安装：**
+
+```bash
+git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
+cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
+```
+
+或在 Codex 中使用 skill installer：
+```text
+$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
+```
+
+**2. 在项目中打开 Codex，说出你想做的事：**
+
+```text
+$codex-autoresearch
+把 TypeScript 代码里所有的 any 类型都消除掉
+```
+
+**3. Codex 扫描、确认，然后自主迭代：**
+
+```
+Codex: 在 src/**/*.ts 中找到 47 个 `any`。
+
+       已确认：
+       - 目标：消除 src/**/*.ts 中所有 any 类型
+       - 指标：any 出现次数（当前 47），方向：降低
+       - 验证：grep 计数 + tsc --noEmit 守护
+
+       还需确认：
+       - 跑到全部消除，还是限制在 N 次迭代？
+
+       回复 "go" 开始，或告诉我要改什么。
+
+你:    go，跑一晚上。
+
+Codex: 开始 -- 基线：47。持续迭代直到你中断。
+```
+
+改善累积，失败回滚，全程记录。
+
+更多安装方式见 [INSTALL.md](../INSTALL.md)。完整操作手册见 [GUIDE.md](../GUIDE.md)。
 
 ---
 
@@ -103,59 +158,6 @@ LOOP (永远 or N 次):
   7. 记录结果
   8. 重复。绝不停止。绝不提问。
 ```
-
----
-
-## 30秒上手
-
-**1. 安装：**
-
-克隆并复制到项目中：
-```bash
-git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
-```
-
-或在 Codex 中使用 skill installer：
-```text
-$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
-```
-
-**2. 在项目中打开 Codex 并运行：**
-
-用一句话告诉 Codex 你想做什么：
-
-```text
-$codex-autoresearch
-把 TypeScript 代码里所有的 any 类型都消除掉
-```
-
-Codex 扫描仓库后，**一定会先确认**再开始 -- 即使目标看起来很明确：
-
-```
-Codex: 在 src/**/*.ts 中找到 47 个 `any`。
-
-       已确认：
-       - 目标：消除 src/**/*.ts 中所有 any 类型
-       - 指标：any 出现次数（当前 47），方向：降低
-       - 验证：grep 计数 + tsc --noEmit 守护
-
-       还需确认：
-       - 跑到全部消除，还是限制在 N 次迭代？
-       - 除了 tsc 还有其他安全检查吗？
-
-       下一步：回复 "go" 开始，或告诉我要改什么。
-
-你:    go，跑一晚上。
-
-Codex: 开始 -- 基线：47。持续迭代直到你中断。
-```
-
-改善累积，失败回滚，全程记录。
-
-高级用户也可以直接用结构化 key-value 配置 -- 见 [GUIDE.md](GUIDE.md)。
-
-更多安装方式见 [INSTALL.md](INSTALL.md)。
 
 ---
 
@@ -364,7 +366,7 @@ Codex: 检测到：PR 到 main，3 个 commit。
 你:    先演练。
 ```
 
-各模式的详细用法和高级选项见 [GUIDE.md](GUIDE.md)。
+各模式的详细用法和高级选项见 [GUIDE.md](../GUIDE.md)。
 
 ---
 
@@ -419,7 +421,6 @@ iteration  commit   metric  delta   status    description
 codex-autoresearch/
   SKILL.md                          # skill 入口（Codex 加载）
   README.md                         # 英文文档
-  README_ZH.md                      # 本文件
   INSTALL.md                        # 安装指南
   GUIDE.md                          # 操作手册
   EXAMPLES.md                       # 按领域分类的配方集
@@ -427,6 +428,17 @@ codex-autoresearch/
   LICENSE                           # MIT
   agents/
     openai.yaml                     # Codex UI 元数据
+  image/
+    banner.png                      # 项目 banner
+  docs/
+    README_ZH.md                    # 本文件
+    README_JA.md                    # 日语
+    README_KO.md                    # 韩语
+    README_FR.md                    # 法语
+    README_DE.md                    # 德语
+    README_ES.md                    # 西班牙语
+    README_PT.md                    # 葡萄牙语
+    README_RU.md                    # 俄语
   scripts/
     validate_skill_structure.sh     # 结构验证脚本
   references/
@@ -479,4 +491,4 @@ codex-autoresearch/
 
 ## 许可证
 
-MIT -- 见 [LICENSE](LICENSE)。
+MIT -- 见 [LICENSE](../LICENSE)。
