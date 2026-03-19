@@ -512,6 +512,7 @@ Ambos archivos no se commitean en git. Durante la reanudacion de sesion, el esta
 | Efectos secundarios externos | El modo `ship` requiere confirmacion explicita durante el asistente de pre-lanzamiento |
 | Limites del entorno | Se detectan al inicio; las hipotesis inviables se filtran automaticamente |
 | Sesion interrumpida | Reanudacion desde el ultimo estado consistente en la siguiente invocacion |
+| Deriva del contexto (ejecuciones largas) | Verificacion de huella del protocolo cada 10 iteraciones; relectura desde disco en caso de fallo; division de sesion tras 2 compactaciones |
 
 ---
 

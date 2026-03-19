@@ -218,6 +218,7 @@ def main() -> int:
         "crashes": state["crashes"],
         "no_ops": state.get("no_ops", 0),
         "blocked": state.get("blocked", 0),
+        "splits": state.get("splits", 0),
         "consecutive_discards": state["consecutive_discards"],
         "pivot_count": state["pivot_count"],
         "last_status": state["last_status"],

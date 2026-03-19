@@ -66,6 +66,7 @@ iteration	commit	metric	delta	guard	status	description
 | `pivot` | Strategy abandoned, fundamentally new approach (see `pivot-protocol.md`) |
 | `search` | Web search performed for external knowledge (see `web-search-protocol.md`) |
 | `drift` | Metric drifted from expected value during session resume |
+| `split` | Session split triggered to prevent context drift in long runs |
 
 ## Example
 

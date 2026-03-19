@@ -114,4 +114,14 @@ for ref in lessons-protocol pivot-protocol web-search-protocol environment-aware
   fi
 done
 
+# Verify autonomous-loop-protocol.md contains Phase 8.7 and Re-Anchor
+if ! grep -q "Phase 8.7" "$ROOT/references/autonomous-loop-protocol.md"; then
+  echo "autonomous-loop-protocol.md is missing Phase 8.7" >&2
+  exit 1
+fi
+if ! grep -q "Re-Anchor" "$ROOT/references/autonomous-loop-protocol.md"; then
+  echo "autonomous-loop-protocol.md is missing Re-Anchor content" >&2
+  exit 1
+fi
+
 echo "Skill structure looks valid. ($(ls "$ROOT/references/"*.md | wc -l) reference files found)"

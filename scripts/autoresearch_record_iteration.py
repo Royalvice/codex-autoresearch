@@ -20,7 +20,7 @@ from autoresearch_helpers import (
 )
 
 
-STATUSES = ["keep", "discard", "crash", "no-op", "blocked", "drift", "refine", "pivot", "search"]
+STATUSES = ["keep", "discard", "crash", "no-op", "blocked", "drift", "refine", "pivot", "search", "split"]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -108,6 +108,8 @@ def main() -> int:
         state["consecutive_discards"] = 0
     elif args.status == "pivot":
         state["pivot_count"] = state.get("pivot_count", 0) + 1
+    elif args.status == "split":
+        state["splits"] = state.get("splits", 0) + 1
 
     rewritten_summary = {
         "iteration": state["iteration"],
@@ -123,6 +125,7 @@ def main() -> int:
         "crashes": state["crashes"],
         "no_ops": state.get("no_ops", 0),
         "blocked": state.get("blocked", 0),
+        "splits": state.get("splits", 0),
         "consecutive_discards": state["consecutive_discards"],
         "pivot_count": state["pivot_count"],
         "last_status": state["last_status"],

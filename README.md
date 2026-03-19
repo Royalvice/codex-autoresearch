@@ -519,6 +519,7 @@ Stateful artifact updates are backed by four helper scripts:
 | External side effects | `ship` mode requires explicit confirmation during the pre-launch wizard |
 | Environment limits | Probed at startup; infeasible hypotheses filtered automatically |
 | Interrupted session | Resume from last consistent state on next invocation |
+| Context drift (long runs) | Protocol Fingerprint Check every 10 iterations; re-read from disk on failure; session split after 2 compactions |
 
 ---
 

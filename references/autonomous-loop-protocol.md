@@ -386,14 +386,58 @@ After every `keep` decision, extract a positive lesson. After every PIVOT, extra
 
 ## Phase 8.5: Health Check
 
-Health Check runs strictly between Log (Phase 8) and Repeat (Phase 9). The execution sequence is: Phase 8 (Log) -> Phase 8.5 (Health Check) -> Phase 9 (Repeat).
+Health Check runs strictly between Log (Phase 8) and Phase 8.7 (Re-Anchoring). The execution sequence is: Phase 8 (Log) -> Phase 8.5 (Health Check) -> Phase 8.7 (Re-Anchoring) -> Phase 9 (Repeat).
 
 Run health checks per `references/health-check-protocol.md`:
 
 - **Every iteration:** disk space, git state, verify command existence, wall-clock tracking.
-- **Every 10 iterations:** scope integrity, environment drift, verify/guard consistency, log integrity deep check.
+- **Every 10 iterations:** scope integrity, environment drift, verify/guard consistency, log integrity deep check, context health (Protocol Fingerprint Check).
 - Log integrity should use the helper-script reconstruction of main rows and retained state, not raw TSV row counts.
 - Auto-recover safe issues. Hard blocker on unrecoverable issues.
+
+## Phase 8.7: Protocol Re-Anchoring
+
+Re-Anchoring runs between Health Check (Phase 8.5) and Repeat (Phase 9). It defends against context drift caused by long-running sessions where automatic context compaction may discard protocol instructions.
+
+### Trigger
+
+Run the Protocol Fingerprint Check when any of the following is true:
+
+- `iteration % 10 == 0`
+- A context compaction warning was observed since the last check
+- The agent notices it cannot recall a specific Hard Rule or Phase definition
+
+### Protocol Fingerprint Check
+
+A zero-token self-check. The agent internally verifies 10 yes/no items without reading files or producing output tokens:
+
+1. Can recall the complete Phase sequence (0 through 9, including 8.5 and 8.7)
+2. Knows Hard Rule 2 (never ask after launch) and Hard Rule 13 (NEVER STOP)
+3. Knows to use helper scripts instead of hand-editing TSV/JSON (Hard Rule 16)
+4. Knows commit happens before verify (Phase 5 before Phase 6)
+5. Knows PIVOT/REFINE thresholds (3 consecutive discards -> REFINE, 5 -> PIVOT)
+6. Knows guard runs after verify (Phase 6 -> Phase 6.5 -> Phase 7)
+7. Knows one focused change per iteration (Phase 4)
+8. Knows run artifacts stay uncommitted and are never staged (Hard Rule 8)
+9. Can recall the current rollback strategy in use for this run
+10. Knows to extract lessons after every kept iteration and every pivot (Hard Rule 15)
+
+### On Failure
+
+If any fingerprint item fails:
+
+1. Use the Read tool to re-read `references/autonomous-loop-protocol.md` and `references/core-principles.md` from disk.
+2. In the next TSV row's description, include the `[RE-ANCHOR]` tag to mark that a re-anchoring event occurred.
+3. Continue the loop from Phase 9.
+
+### Compaction Counter
+
+Track the number of context compaction events observed during the session:
+
+- **0 compactions (default):** Fingerprint check every 10 iterations.
+- **1 compaction:** Fingerprint check every 5 iterations.
+- **2 compactions:** Recommend session split (see `references/session-resume-protocol.md` Session Splitting). Continue if the operator has not set up auto-restart.
+- **3+ compactions:** Soft blocker. Run the fingerprint check every iteration. Strongly recommend session split.
 
 ## Progress Reporting
 

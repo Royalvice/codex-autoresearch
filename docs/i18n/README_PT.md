@@ -512,6 +512,7 @@ Ambos os arquivos nao sao commitados no git. Durante a retomada de sessao, o est
 | Efeitos colaterais externos | O modo `ship` requer confirmacao explicita durante o assistente de pre-lancamento |
 | Limites do ambiente | Detectados na inicializacao; hipoteses inviaveis sao filtradas automaticamente |
 | Sessao interrompida | Retomada do ultimo estado consistente na proxima invocacao |
+| Deriva de contexto (execucoes longas) | Verificacao de impressao digital do protocolo a cada 10 iteracoes; releitura do disco em caso de falha; divisao de sessao apos 2 compactacoes |
 
 ---
 

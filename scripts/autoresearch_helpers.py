@@ -37,6 +37,7 @@ MAIN_STATUSES = {
     "pivot",
     "refine",
     "search",
+    "split",
 }
 
 
@@ -331,6 +332,7 @@ def log_summary(parsed: ParsedLog, direction: str) -> dict[str, Any]:
         "crashes": 0,
         "no_ops": 0,
         "blocked": 0,
+        "splits": 0,
         "consecutive_discards": 0,
         "pivot_count": 0,
         "last_status": "baseline",
@@ -385,6 +387,8 @@ def log_summary(parsed: ParsedLog, direction: str) -> dict[str, Any]:
             summary["pivot_count"] += 1
         elif row.status == "search":
             pass
+        elif row.status == "split":
+            summary["splits"] += 1
         else:
             raise AutoresearchError(
                 f"Unsupported status {row.status!r} in results log line {row.line_number}"
@@ -433,6 +437,7 @@ def compare_summary_to_state(
     compare_scalar_field("crashes")
     compare_scalar_field("no_ops")
     compare_scalar_field("blocked")
+    compare_scalar_field("splits")
     compare_scalar_field("consecutive_discards")
     compare_scalar_field("pivot_count")
     compare_scalar_field("last_status")
@@ -465,6 +470,7 @@ def build_state_payload(
             "crashes": summary["crashes"],
             "no_ops": summary["no_ops"],
             "blocked": summary["blocked"],
+            "splits": summary["splits"],
             "consecutive_discards": summary["consecutive_discards"],
             "pivot_count": summary["pivot_count"],
             "last_status": summary["last_status"],

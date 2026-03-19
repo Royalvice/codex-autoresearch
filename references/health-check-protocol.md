@@ -28,6 +28,7 @@ Run at iterations 10, 20, 30, etc.:
 | Environment drift | Re-check disk space, verify GPU if initially detected | Warning on degradation |
 | Verify consistency | Run verify twice, compare results | Warning if results differ (flaky verify) |
 | Guard consistency | Run guard once, confirm still passes on current state | Warning if guard started failing without code changes |
+| Context health | Protocol Fingerprint Check from Phase 8.7 | Re-read protocol files; log `[RE-ANCHOR]` |
 
 ## Response Actions
 
@@ -90,7 +91,7 @@ Thresholds:
 
 ## Integration Points
 
-- **autonomous-loop-protocol.md:** Runs as Phase 8.5 between Log and Repeat.
+- **autonomous-loop-protocol.md:** Runs as Phase 8.5 between Log and Phase 8.7 (Re-Anchoring). Context health feeds into the Protocol Fingerprint Check in Phase 8.7.
 - **environment-awareness.md:** Initial probes establish baselines for drift detection.
 - **parallel-experiments-protocol.md:** Check worktree health before each parallel batch.
 - **results-logging.md:** Health warnings are logged in the description column.

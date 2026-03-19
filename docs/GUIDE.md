@@ -466,6 +466,7 @@ If unrelated uncommitted changes exist:
 | External side effects | Ship mode requires explicit confirmation during setup phase |
 | Environment limits | Probed at startup; infeasible hypotheses filtered |
 | Interrupted session | Resume from last consistent state |
+| Context drift (long runs) | Protocol Fingerprint Check every 10 iterations; re-read from disk on failure; session split after 2 compactions |
 
 ---
 
@@ -521,6 +522,35 @@ If you interrupt a run and come back later, Codex can resume from where you left
 - If state is consistent: resumes immediately, no wizard needed.
 - If state is partially consistent: runs a mini-wizard (1 round) to re-confirm.
 - If state is inconsistent or the goal has changed: starts fresh, renames old logs.
+
+---
+
+## Long Run Stability
+
+Long-running sessions (20+ iterations) may experience context drift when the CLI compacts the conversation to stay within context limits. The skill includes three layers of defense:
+
+### Automatic Re-Anchoring
+
+Every 10 iterations (or more frequently after compaction), the agent runs a Protocol Fingerprint Check -- a zero-cost internal self-test that verifies it still remembers all critical rules and phase definitions. If any item fails, the agent re-reads the protocol files from disk before continuing. These events are marked with `[RE-ANCHOR]` in the results log.
+
+You do not need to do anything to enable this. It runs automatically as part of Phase 8.7 in the iteration cycle.
+
+### Session Splitting
+
+If the context has been compacted twice or more, or the iteration counter reaches 40, the agent will proactively stop the loop and save a checkpoint. The results log will contain a `[SESSION-SPLIT]` entry with the reason. Simply re-invoke the skill to resume -- session resume picks up exactly where the split occurred.
+
+### Overnight Wrapper
+
+For truly long runs (overnight, multi-day), use a wrapper script that automatically restarts after a session split:
+
+```bash
+while true; do
+  codex --approval-mode full-auto "$PROMPT"
+  sleep 5
+done
+```
+
+Each restart gets a fresh context window with all protocol files fully re-injected, eliminating drift entirely. The session resume mechanism handles continuity transparently.
 
 ---
 
