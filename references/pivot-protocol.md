@@ -63,7 +63,7 @@ Actions:
    ```
 2. Continue iterating (do not stop -- the user may be asleep).
 3. Switch to increasingly bold, architecture-level changes.
-4. Log each subsequent attempt with `soft-blocker` annotation in the description.
+4. Log each subsequent attempt with a `[SOFT-BLOCKER]` prefix in the description column. Note: `soft-blocker` is a description annotation, not a status value. The `status` column should reflect the actual outcome (`discard`, `keep`, `crash`, etc.).
 
 ## Counting Rules
 

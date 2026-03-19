@@ -98,3 +98,22 @@ Only the selected result increments the main iteration counter.
 - Never commit the log.
 - Re-read the latest entries before choosing the next idea.
 - Health check warnings are logged in the description column with a `[HEALTH]` prefix.
+
+## Cross-Validation with JSON State
+
+`autoresearch-state.json` is the primary recovery source for session resume (see `references/session-resume-protocol.md`). The TSV log and the JSON state file serve complementary roles:
+
+| Aspect | `research-results.tsv` | `autoresearch-state.json` |
+|--------|----------------------|--------------------------|
+| **Purpose** | Full audit trail of every iteration | Compact snapshot for fast resume |
+| **Content** | One row per iteration with description | Aggregated counters and config |
+| **Recovery role** | Fallback when JSON is missing | Primary recovery source |
+| **Cross-validation** | Row count must match JSON `state.iteration` | `state.current_metric` must match last TSV row metric |
+
+### Consistency Rules
+
+- **Row count match:** TSV data row count (excluding comments and header) must equal `state.iteration` exactly. No tolerance. Off-by-one triggers Recovery Priority 2 (mini-wizard).
+- **Metric match:** `state.current_metric` must equal the last TSV row's metric value. For integer metrics, exact match required. For floating-point metrics, tolerance is 0.1% relative or 0.001 absolute, whichever is larger.
+- **Parallel batch rows:** When parallel mode is active, all worker rows (5a, 5b, 5c) count toward TSV row total, but JSON `state.iteration` only reflects the main counter. Cross-validation accounts for this: expected TSV rows = `state.iteration` + (total_parallel_worker_rows - total_parallel_batches).
+
+During session resume, the recovery logic compares the TSV row count against `state.iteration` in the JSON file. A mismatch triggers a mini-wizard for confirmation rather than a silent full resume. This cross-validation prevents stale or partial state from causing silent divergence.

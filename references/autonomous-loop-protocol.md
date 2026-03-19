@@ -34,10 +34,21 @@ Fail fast if the loop would be unsafe. Clarify first if the intent is unclear.
 
 Before anything else, check for a prior interrupted run per `references/session-resume-protocol.md`:
 
-1. Look for `research-results.tsv`, `autoresearch-lessons.md`, and recent `experiment:` commits.
-2. If a consistent prior run is detected, resume from the next iteration (skip wizard).
-3. If a partially consistent prior run is detected, run a mini-wizard (1 round) to re-confirm.
-4. If no prior run is detected, proceed with fresh setup.
+1. Check for `autoresearch-state.json` first (primary recovery source), then `research-results.tsv`, `autoresearch-lessons.md`, and recent `experiment:` commits.
+2. Apply the Recovery Priority Matrix from `session-resume-protocol.md`:
+   - JSON valid + TSV consistent -> full resume (skip wizard).
+   - JSON valid + TSV inconsistent -> mini-wizard (1 round).
+   - JSON missing + TSV exists -> legacy TSV fallback.
+   - JSON corrupt -> rename to `.bak`, fall back to TSV.
+3. If no prior run is detected, proceed with fresh setup.
+
+### JSON State Initial Write
+
+After the wizard completes (or after full resume is confirmed), write the initial `autoresearch-state.json`:
+
+1. Write to `autoresearch-state.json.tmp` with `version`, `run_tag`, `mode`, full `config` object, and initial `state` (iteration 0, baseline metric, all counters at 0).
+2. Atomically rename `.tmp` to `autoresearch-state.json`.
+3. Do not commit this file to git.
 
 ### Environment Probe
 
@@ -281,6 +292,16 @@ Always log:
 
 The results log stays uncommitted.
 
+### JSON State Update
+
+Immediately after appending the TSV row, atomically update `autoresearch-state.json`:
+
+1. Build the updated state object: increment `state.iteration`, update `state.current_metric`, `state.last_commit`, `state.last_status`, `state.keeps`/`state.discards`/`state.crashes`, `state.consecutive_discards`, `state.pivot_count`, and recalculate `state.best_metric`/`state.best_iteration` if the metric improved.
+2. Set `updated_at` to the current UTC timestamp.
+3. Write to `autoresearch-state.json.tmp`.
+4. Rename `.tmp` to `autoresearch-state.json` (atomic).
+5. Do not commit this file to git.
+
 ## Phase 9: Repeat
 
 For bounded runs:
@@ -348,3 +369,5 @@ A **hard blocker** is any condition that makes continued iteration unsafe or mea
 - or the loop requires external actions not approved during the pre-launch wizard.
 
 Stop immediately if any hard blocker appears. Do not ask the user -- log the blocker in the completion summary.
+
+On hard blocker, the last valid `autoresearch-state.json` remains on disk. Do not attempt to update the JSON state after a hard blocker is detected. Log the blocker reason in TSV with status `blocked` and stop. The preserved JSON state enables session resume on the next invocation.

@@ -436,13 +436,17 @@ security + fix               # 审计并修复一步到位
 
 ## 会话恢复
 
-如果 Codex 检测到先前被中断的运行（结果日志、经验文件、实验提交），它可以从最后一致的状态恢复，而不是从头开始：
+如果 Codex 检测到之前被中断的运行，它可以从最后一致的状态恢复，而不是从头开始。主要恢复来源是 `autoresearch-state.json`，一个每次迭代原子更新的紧凑状态快照。TSV 结果日志作为交叉验证的回退。
 
-- **状态一致：** 立即恢复，跳过向导
-- **部分一致：** 迷你向导（1 轮）重新确认
-- **不一致或目标不同：** 全新开始（旧日志重命名）
+恢复优先级：
 
-详见 `references/session-resume-protocol.md`。
+1. **JSON + TSV 一致：** 立即恢复，跳过向导
+2. **JSON 有效，TSV 不一致：** 迷你向导（1 轮确认）
+3. **JSON 缺失，TSV 存在：** 旧版 TSV 恢复
+4. **JSON 损坏：** 重命名为 `.bak`，回退到 TSV
+5. **都不存在：** 全新开始（旧日志重命名）
+
+参见 `references/session-resume-protocol.md`。
 
 ---
 
@@ -468,7 +472,10 @@ security + fix               # 审计并修复一步到位
 
 ## 结果日志
 
-每次迭代记录到 TSV 文件（`research-results.tsv`）：
+每次迭代以两种互补格式记录：
+
+- **`research-results.tsv`** -- 完整审计跟踪，每次迭代一行
+- **`autoresearch-state.json`** -- 用于快速会话恢复的紧凑状态快照
 
 ```
 iteration  commit   metric  delta   status    description
@@ -478,7 +485,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-每 5 次迭代打印进度总结。有界运行结束时打印基线到最佳值的总结。
+两个文件都不提交到 git。会话恢复时，JSON 状态与 TSV 行数交叉验证以检测不一致。进度摘要每 5 次迭代打印一次。有界运行在最后打印基线到最优的总结。
 
 ---
 

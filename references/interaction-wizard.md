@@ -221,3 +221,18 @@ If validation fails, tell the user in plain language what went wrong and suggest
 - `ship` mode never performs side effects without explicit confirmation.
 - After the user says "go" / "start" / "launch", begin immediately. Do not ask again.
 - **Two-phase boundary:** ALL questions happen before launch. Once the loop starts, it is fully autonomous. NEVER pause to ask the user anything during execution -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity mid-loop, apply best practices, log your reasoning, and keep iterating. The user may be asleep.
+
+## Mini-Wizard (Session Resume)
+
+When `session-resume-protocol.md` detects a prior run with a valid `autoresearch-state.json` but inconsistent TSV (Recovery Priority 2), the full wizard is replaced by a single-round mini-wizard:
+
+1. Show what was detected:
+   - Prior run tag, iteration count, best metric, and last status from the JSON state.
+   - The specific inconsistency (e.g., TSV row count mismatch).
+2. Ask exactly one question with two choices:
+   - **Resume:** use the JSON `config` as the authoritative source. Briefly confirm scope, metric, and verify command in a single confirmation block.
+   - **Fresh start:** rename old artifacts with `.prev` suffixes and proceed with the full wizard.
+3. If the user chooses to resume, present a condensed confirmation summary (same format as Step 3 above but sourced from JSON `config` instead of repo scanning).
+4. The user replies "go" and the loop starts. No further rounds.
+
+The mini-wizard respects the same two-phase boundary: all questions happen before launch.

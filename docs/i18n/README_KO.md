@@ -436,13 +436,17 @@ security + fix               # 감사와 수정을 한 번에 수행
 
 ## 세션 재개
 
-Codex가 이전에 중단된 실행(결과 로그, 교훈 파일, 실험 커밋)을 감지하면, 처음부터 다시 시작하는 대신 마지막 일관 상태에서 재개할 수 있습니다:
+Codex가 이전에 중단된 실행을 감지하면 처음부터 다시 시작하는 대신 마지막 일관된 상태에서 재개할 수 있습니다. 주요 복구 소스는 `autoresearch-state.json`으로, 각 반복마다 원자적으로 업데이트되는 컴팩트한 상태 스냅샷입니다. TSV 결과 로그는 교차 검증 폴백으로 사용됩니다.
 
-- **일관 상태:** 즉시 재개, 위저드 스킵
-- **부분 일관:** 미니 위저드(1라운드)로 재확인
-- **비일관 또는 다른 목표:** 새로 시작(기존 로그는 이름 변경)
+복구 우선순위:
 
-자세한 내용은 `references/session-resume-protocol.md` 참조.
+1. **JSON + TSV 일치:** 즉시 재개, 마법사 건너뛰기
+2. **JSON 유효, TSV 불일치:** 미니 마법사 (1라운드 확인)
+3. **JSON 없음, TSV 존재:** 레거시 TSV 복구
+4. **JSON 손상:** `.bak`으로 이름 변경, TSV로 폴백
+5. **둘 다 없음:** 새로 시작 (이전 로그 이름 변경)
+
+`references/session-resume-protocol.md` 참조.
 
 ---
 
@@ -468,7 +472,10 @@ Codex가 이전에 중단된 실행(결과 로그, 교훈 파일, 실험 커밋)
 
 ## 결과 로그
 
-각 반복은 TSV 파일(`research-results.tsv`)에 기록됩니다:
+각 반복은 두 가지 보완적인 형식으로 기록됩니다:
+
+- **`research-results.tsv`** -- 전체 감사 추적, 반복당 한 줄
+- **`autoresearch-state.json`** -- 빠른 세션 재개를 위한 컴팩트한 상태 스냅샷
 
 ```
 iteration  commit   metric  delta   status    description
@@ -478,7 +485,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-5회 반복마다 진행 요약이 출력됩니다. 유한 실행 종료 시 베이스라인에서 최고값까지의 요약이 출력됩니다.
+두 파일 모두 git에 커밋하지 않습니다. 세션 재개 시 JSON 상태는 TSV 행 수와 교차 검증되어 불일치를 감지합니다. 진행 요약은 5회 반복마다 출력됩니다. 유한 실행은 마지막에 기준선에서 최고값까지의 요약을 출력합니다.
 
 ---
 

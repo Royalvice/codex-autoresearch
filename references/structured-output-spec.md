@@ -80,6 +80,7 @@ Artifact:
 
 - `research-results.tsv`
 - `autoresearch-lessons.md` (if lessons were extracted)
+- `autoresearch-state.json` (session state snapshot, not committed to git; see `references/session-resume-protocol.md`)
 
 ### plan
 

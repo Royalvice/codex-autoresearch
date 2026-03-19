@@ -436,11 +436,15 @@ Siehe `references/parallel-experiments-protocol.md`.
 
 ## Sitzungswiederaufnahme
 
-Wenn Codex einen zuvor unterbrochenen Lauf erkennt (Ergebnisprotokoll, Erkenntnisdatei, Experiment-Commits), kann er vom letzten konsistenten Zustand fortfahren, anstatt von vorne zu beginnen:
+Wenn Codex einen zuvor unterbrochenen Lauf erkennt, kann er vom letzten konsistenten Zustand fortfahren, anstatt von vorne zu beginnen. Die primaere Wiederherstellungsquelle ist `autoresearch-state.json`, ein kompakter Zustandssnapshot, der bei jeder Iteration atomar aktualisiert wird. Das TSV-Ergebnisprotokoll dient als Kreuzvalidierung und Fallback.
 
-- **Konsistenter Zustand:** sofortige Wiederaufnahme, Assistent wird uebersprungen
-- **Teilweise konsistent:** Mini-Assistent (1 Runde) zur erneuten Bestaetigung
-- **Inkonsistent oder anderes Ziel:** Neustart (altes Protokoll wird umbenannt)
+Wiederherstellungsprioritaet:
+
+1. **JSON + TSV konsistent:** sofortige Wiederaufnahme, Assistent uebersprungen
+2. **JSON gueltig, TSV inkonsistent:** Mini-Assistent (1 Runde Bestaetigung)
+3. **JSON fehlt, TSV vorhanden:** Legacy-TSV-Wiederherstellung
+4. **JSON beschaedigt:** Umbenennung in `.bak`, Fallback auf TSV
+5. **Keines vorhanden:** Neustart (alte Protokolle umbenannt)
 
 Siehe `references/session-resume-protocol.md`.
 
@@ -468,7 +472,10 @@ Siehe `references/exec-workflow.md`.
 
 ## Ergebnisprotokoll
 
-Jede Iteration wird im TSV-Format aufgezeichnet (`research-results.tsv`):
+Jede Iteration wird in zwei komplementaeren Formaten aufgezeichnet:
+
+- **`research-results.tsv`** -- vollstaendiger Audit-Trail, eine Zeile pro Iteration
+- **`autoresearch-state.json`** -- kompakter Zustandssnapshot fuer schnelle Sitzungswiederaufnahme
 
 ```
 iteration  commit   metric  delta   status    description
@@ -478,7 +485,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-Alle 5 Iterationen wird eine Fortschrittszusammenfassung ausgegeben. Begrenzte Laeufe geben eine abschliessende Zusammenfassung vom Ausgangswert zum besten Ergebnis aus.
+Beide Dateien werden nicht in git committed. Bei der Sitzungswiederaufnahme wird der JSON-Zustand mit der TSV-Zeilenanzahl kreuzvalidiert, um Inkonsistenzen zu erkennen. Fortschrittsberichte werden alle 5 Iterationen ausgegeben. Begrenzte Laeufe geben am Ende eine Zusammenfassung von Baseline bis Bestwert aus.
 
 ---
 

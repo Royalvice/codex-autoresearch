@@ -436,11 +436,15 @@ See `references/parallel-experiments-protocol.md`.
 
 ## Session Resume
 
-If Codex detects a prior interrupted run (results log, lessons file, experiment commits), it can resume from the last consistent state instead of starting over:
+If Codex detects a prior interrupted run, it can resume from the last consistent state instead of starting over. The primary recovery source is `autoresearch-state.json`, a compact state snapshot atomically updated each iteration. The TSV results log serves as a cross-validation fallback.
 
-- **Consistent state:** resume immediately, skip wizard
-- **Partially consistent:** mini-wizard (1 round) to re-confirm
-- **Inconsistent or different goal:** fresh start (old log renamed)
+Recovery priority:
+
+1. **JSON + TSV consistent:** resume immediately, skip wizard
+2. **JSON valid, TSV mismatch:** mini-wizard (1 round) to re-confirm
+3. **JSON missing, TSV exists:** legacy TSV-only recovery
+4. **JSON corrupt:** rename to `.bak`, fall back to TSV
+5. **Neither exists:** fresh start (old logs renamed)
 
 See `references/session-resume-protocol.md`.
 
@@ -468,7 +472,10 @@ See `references/exec-workflow.md`.
 
 ## Results Log
 
-Every iteration is recorded in TSV format (`research-results.tsv`):
+Every iteration is recorded in two complementary formats:
+
+- **`research-results.tsv`** -- full audit trail, one row per iteration
+- **`autoresearch-state.json`** -- compact state snapshot for fast session resume
 
 ```
 iteration  commit   metric  delta   status    description
@@ -478,7 +485,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-Progress summaries print every 5 iterations. Bounded runs print a final baseline-to-best summary.
+Both files stay uncommitted. On session resume, the JSON state is cross-validated against TSV row counts to detect inconsistencies. Progress summaries print every 5 iterations. Bounded runs print a final baseline-to-best summary.
 
 ---
 

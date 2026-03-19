@@ -437,11 +437,15 @@ Voir `references/parallel-experiments-protocol.md`.
 
 ## Reprise de session
 
-Si Codex detecte une execution precedente interrompue (journal des resultats, fichier de lecons, commits d'experience), il peut reprendre a partir du dernier etat coherent au lieu de repartir de zero :
+Si Codex detecte une execution precedente interrompue, il peut reprendre depuis le dernier etat coherent au lieu de recommencer. La source de recuperation principale est `autoresearch-state.json`, un instantane d'etat compact mis a jour atomiquement a chaque iteration. Le journal TSV sert de validation croisee et de secours.
 
-- **Etat coherent :** reprise immediate, assistant ignore
-- **Partiellement coherent :** mini-assistant (1 echange) pour reconfirmer
-- **Incoherent ou objectif different :** nouveau depart (ancien journal renomme)
+Priorite de recuperation :
+
+1. **JSON + TSV coherents :** reprise immediate, assistant saute
+2. **JSON valide, TSV incoherent :** mini-assistant (1 tour de confirmation)
+3. **JSON absent, TSV present :** recuperation TSV historique
+4. **JSON corrompu :** renomme en `.bak`, repli sur TSV
+5. **Aucun des deux :** nouveau depart (anciens journaux renommes)
 
 Voir `references/session-resume-protocol.md`.
 
@@ -469,7 +473,10 @@ Voir `references/exec-workflow.md`.
 
 ## Journal des resultats
 
-Chaque iteration est enregistree au format TSV (`research-results.tsv`) :
+Chaque iteration est enregistree dans deux formats complementaires :
+
+- **`research-results.tsv`** -- piste d'audit complete, une ligne par iteration
+- **`autoresearch-state.json`** -- instantane d'etat compact pour une reprise de session rapide
 
 ```
 iteration  commit   metric  delta   status    description
@@ -479,7 +486,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-Un resume de progression est affiche toutes les 5 iterations. Les executions limitees affichent un resume final de la base de reference au meilleur resultat.
+Les deux fichiers ne sont pas commites dans git. Lors de la reprise de session, l'etat JSON est croise avec le nombre de lignes TSV pour detecter les incoherences. Les resumes de progression sont affiches toutes les 5 iterations. Les executions bornees affichent un resume final de la base au meilleur resultat.
 
 ---
 

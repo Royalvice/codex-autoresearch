@@ -218,6 +218,16 @@ iteration	commit	metric	delta	guard	status	description
 - The selected result gets the real iteration number for tracking.
 - Non-selected results are logged but do not increment the main iteration counter.
 
+### JSON State Update for Parallel Batches
+
+After a parallel batch completes and the best result is merged (or all results are discarded):
+
+1. Update `autoresearch-state.json` once per batch, not once per worker.
+2. Increment `state.iteration` by 1 (the batch counts as a single iteration).
+3. Set `state.current_metric` to the selected worker's metric (or unchanged if all discarded).
+4. Update `state.keeps`/`state.discards` -- a batch with one selected result counts as 1 keep; a batch with zero selected results counts as 1 discard.
+5. All worker rows appear in TSV (5a, 5b, 5c), but the JSON `state.iteration` reflects only the main counter (5, not 5c).
+
 ## Fallback to Serial
 
 Switch to serial mode if:

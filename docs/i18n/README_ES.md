@@ -436,13 +436,17 @@ Consulta `references/parallel-experiments-protocol.md`.
 
 ## Reanudacion de sesion
 
-Si Codex detecta una ejecucion anterior interrumpida (registro de resultados, archivo de lecciones, commits de experimentos), puede reanudar desde el ultimo estado consistente en lugar de empezar de cero:
+Si Codex detecta una ejecucion anterior interrumpida, puede reanudar desde el ultimo estado consistente en lugar de empezar de cero. La fuente de recuperacion principal es `autoresearch-state.json`, una instantanea de estado compacta actualizada atomicamente en cada iteracion. El registro TSV sirve como validacion cruzada y respaldo.
 
-- **Estado consistente:** reanudacion inmediata, se omite el asistente
-- **Parcialmente consistente:** mini-asistente (1 ronda) para reconfirmar
-- **Inconsistente u objetivo diferente:** inicio limpio (el registro anterior se renombra)
+Prioridad de recuperacion:
 
-Consulta `references/session-resume-protocol.md`.
+1. **JSON + TSV consistentes:** reanudacion inmediata, asistente omitido
+2. **JSON valido, TSV inconsistente:** mini-asistente (1 ronda de confirmacion)
+3. **JSON ausente, TSV presente:** recuperacion TSV heredada
+4. **JSON corrupto:** renombrado a `.bak`, respaldo a TSV
+5. **Ninguno presente:** inicio limpio (registros antiguos renombrados)
+
+Ver `references/session-resume-protocol.md`.
 
 ---
 
@@ -468,7 +472,10 @@ Consulta `references/exec-workflow.md`.
 
 ## Registro de resultados
 
-Cada iteracion se registra en formato TSV (`research-results.tsv`):
+Cada iteracion se registra en dos formatos complementarios:
+
+- **`research-results.tsv`** -- pista de auditoria completa, una fila por iteracion
+- **`autoresearch-state.json`** -- instantanea de estado compacta para reanudacion rapida de sesion
 
 ```
 iteration  commit   metric  delta   status    description
@@ -478,7 +485,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-Se imprime un resumen de progreso cada 5 iteraciones. Las ejecuciones limitadas imprimen un resumen final de linea base a mejor valor.
+Ambos archivos no se commitean en git. Durante la reanudacion de sesion, el estado JSON se valida cruzadamente con el conteo de filas TSV para detectar inconsistencias. Los resumenes de progreso se imprimen cada 5 iteraciones. Las ejecuciones acotadas imprimen un resumen final de linea base a mejor resultado.
 
 ---
 

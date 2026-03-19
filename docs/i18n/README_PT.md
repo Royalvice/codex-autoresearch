@@ -436,13 +436,17 @@ Consulte `references/parallel-experiments-protocol.md`.
 
 ## Retomada de sessao
 
-Se o Codex detecta uma execucao anterior interrompida (registro de resultados, arquivo de licoes, commits de experimentos), pode retomar do ultimo estado consistente em vez de comecar do zero:
+Se o Codex detectar uma execucao anterior interrompida, ele pode retomar do ultimo estado consistente em vez de comecar do zero. A fonte de recuperacao principal e `autoresearch-state.json`, um snapshot de estado compacto atualizado atomicamente a cada iteracao. O log TSV serve como validacao cruzada e fallback.
 
-- **Estado consistente:** retomada imediata, assistente ignorado
-- **Parcialmente consistente:** mini-assistente (1 rodada) para reconfirmar
-- **Inconsistente ou objetivo diferente:** inicio limpo (o registro anterior e renomeado)
+Prioridade de recuperacao:
 
-Consulte `references/session-resume-protocol.md`.
+1. **JSON + TSV consistentes:** retomada imediata, assistente ignorado
+2. **JSON valido, TSV inconsistente:** mini-assistente (1 rodada de confirmacao)
+3. **JSON ausente, TSV presente:** recuperacao TSV legada
+4. **JSON corrompido:** renomeado para `.bak`, fallback para TSV
+5. **Nenhum presente:** inicio limpo (logs antigos renomeados)
+
+Veja `references/session-resume-protocol.md`.
 
 ---
 
@@ -468,7 +472,10 @@ Consulte `references/exec-workflow.md`.
 
 ## Registro de resultados
 
-Cada iteracao e registrada em formato TSV (`research-results.tsv`):
+Cada iteracao e registrada em dois formatos complementares:
+
+- **`research-results.tsv`** -- trilha de auditoria completa, uma linha por iteracao
+- **`autoresearch-state.json`** -- snapshot de estado compacto para retomada rapida de sessao
 
 ```
 iteration  commit   metric  delta   status    description
@@ -478,7 +485,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-Um resumo de progresso e impresso a cada 5 iteracoes. Execucoes limitadas imprimem um resumo final de linha de base ao melhor valor.
+Ambos os arquivos nao sao commitados no git. Durante a retomada de sessao, o estado JSON e validado cruzadamente com a contagem de linhas TSV para detectar inconsistencias. Resumos de progresso sao impressos a cada 5 iteracoes. Execucoes limitadas imprimem um resumo final da linha de base ao melhor resultado.
 
 ---
 

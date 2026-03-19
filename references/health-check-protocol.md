@@ -14,6 +14,7 @@ Run between Phase 8 (Log) and Phase 9 (Repeat):
 | Git state | `git status --porcelain` shows only expected files | Warning if unexpected files; hard blocker if repo is corrupt |
 | Verify health | Last verify completed without timeout or crash | Warning if last 2 verifies timed out; hard blocker if verify command missing |
 | Log integrity | Results TSV has expected number of rows | Hard blocker if rows are missing or file is corrupt |
+| JSON state integrity | `autoresearch-state.json` exists, is valid JSON, and `state.iteration` matches TSV row count | Warning if mismatch; attempt re-write from TSV data. Hard blocker if both TSV and JSON are corrupt |
 | Wall-clock | Current iteration time vs rolling average | Warning if >3x average (possible resource contention) |
 
 ### Every 10 Iterations (Deep Check)
@@ -61,6 +62,7 @@ These issues stop the loop immediately:
 |-------|--------|
 | Disk < 500MB | Cannot safely commit or create files |
 | Results log corrupted or missing | Cannot track progress |
+| Both JSON state and TSV corrupted | Cannot recover run state; data integrity lost |
 | Git repo in broken state | Cannot commit or revert |
 | Verify command no longer exists | Cannot measure progress |
 | All scope files deleted | Nothing to modify |
@@ -92,4 +94,5 @@ Thresholds:
 - **environment-awareness.md:** Initial probes establish baselines for drift detection.
 - **parallel-experiments-protocol.md:** Check worktree health before each parallel batch.
 - **results-logging.md:** Health warnings are logged in the description column.
+- **session-resume-protocol.md:** JSON state integrity check ensures `autoresearch-state.json` stays consistent with TSV for reliable session recovery.
 - **SKILL.md:** Listed in the load order for iterating modes.

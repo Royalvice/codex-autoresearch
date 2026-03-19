@@ -39,7 +39,7 @@ If any required field is missing, exit immediately with code 2 and a JSON error.
 | Web search | available | disabled by default |
 | Parallel | user opt-in | disabled by default |
 | Lessons | read + write | read only (do not write in CI) |
-| Session resume | full | disabled (always fresh start) |
+| Session resume | full | disabled (fresh start; prior JSON/TSV renamed to `.prev`) |
 
 ## JSON Output Format
 
@@ -117,6 +117,7 @@ optimize:
 
 Exec mode always starts fresh:
 - If `research-results.tsv` exists from a prior run, rename it to `research-results.prev.tsv`.
+- If `autoresearch-state.json` exists from a prior run, rename it to `autoresearch-state.prev.json`. Exec mode does not write or update this file (session resume is disabled).
 - If `autoresearch-lessons.md` exists, read it for hypothesis filtering but never modify it.
 - Do not revert prior experiment commits (assume external cleanup between CI runs).
 
