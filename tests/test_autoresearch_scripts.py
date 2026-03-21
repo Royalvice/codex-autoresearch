@@ -107,6 +107,60 @@ class AutoresearchScriptsTest(unittest.TestCase):
             args.extend(["--stop-condition", stop_condition])
         return self.run_script(*args)
 
+    def write_sleeping_fake_codex(self, path: Path) -> None:
+        self.write_fake_codex(
+            path,
+            body_lines=[
+                'repo=""',
+                'while [[ $# -gt 0 ]]; do',
+                '  case "$1" in',
+                '    -C) repo="$2"; shift 2 ;;',
+                '    *) shift ;;',
+                '  esac',
+                'done',
+                'if [[ -n "$repo" ]]; then cd "$repo"; fi',
+                "sleep 30",
+            ],
+        )
+
+    def launch_runtime(
+        self,
+        repo: Path,
+        *,
+        fake_codex_path: Path,
+        original_goal: str = "Reduce failures in this repo",
+        goal: str = "Reduce failures",
+        scope: str = "src/**/*.py",
+        metric_name: str = "failure count",
+        direction: str = "lower",
+        verify: str = "pytest -q",
+        guard: str = "python -m py_compile src",
+    ) -> dict[str, object]:
+        return self.run_script(
+            "autoresearch_runtime_ctl.py",
+            "launch",
+            "--repo",
+            str(repo),
+            "--original-goal",
+            original_goal,
+            "--mode",
+            "loop",
+            "--goal",
+            goal,
+            "--scope",
+            scope,
+            "--metric-name",
+            metric_name,
+            "--direction",
+            direction,
+            "--verify",
+            verify,
+            "--guard",
+            guard,
+            "--codex-bin",
+            str(fake_codex_path),
+        )
+
     def test_init_and_serial_iteration_state_is_consistent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
@@ -1941,45 +1995,9 @@ class AutoresearchScriptsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
             fake_codex_path = tmpdir / "fake-codex"
-            self.write_fake_codex(
-                fake_codex_path,
-                body_lines=[
-                    'repo=""',
-                    'while [[ $# -gt 0 ]]; do',
-                    '  case "$1" in',
-                    '    -C) repo="$2"; shift 2 ;;',
-                    '    *) shift ;;',
-                    '  esac',
-                    'done',
-                    'if [[ -n "$repo" ]]; then cd "$repo"; fi',
-                    "sleep 30",
-                ],
-            )
+            self.write_sleeping_fake_codex(fake_codex_path)
 
-            launched = self.run_script(
-                "autoresearch_runtime_ctl.py",
-                "launch",
-                "--repo",
-                str(tmpdir),
-                "--original-goal",
-                "Reduce failures in this repo",
-                "--mode",
-                "loop",
-                "--goal",
-                "Reduce failures",
-                "--scope",
-                "src/**/*.py",
-                "--metric-name",
-                "failure count",
-                "--direction",
-                "lower",
-                "--verify",
-                "pytest -q",
-                "--guard",
-                "python -m py_compile src",
-                "--codex-bin",
-                str(fake_codex_path),
-            )
+            launched = self.launch_runtime(tmpdir, fake_codex_path=fake_codex_path)
             self.assertEqual(launched["status"], "running")
             self.assertTrue((tmpdir / "autoresearch-launch.json").exists())
             self.assertTrue((tmpdir / "autoresearch-runtime.json").exists())
@@ -2000,20 +2018,7 @@ class AutoresearchScriptsTest(unittest.TestCase):
             tmpdir = Path(tmp)
             fake_codex_path = tmpdir / "fake-codex"
             self.create_launch_manifest(tmpdir)
-            self.write_fake_codex(
-                fake_codex_path,
-                body_lines=[
-                    'repo=""',
-                    'while [[ $# -gt 0 ]]; do',
-                    '  case "$1" in',
-                    '    -C) repo="$2"; shift 2 ;;',
-                    '    *) shift ;;',
-                    '  esac',
-                    'done',
-                    'if [[ -n "$repo" ]]; then cd "$repo"; fi',
-                    "sleep 30",
-                ],
-            )
+            self.write_sleeping_fake_codex(fake_codex_path)
 
             started = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -2050,6 +2055,30 @@ class AutoresearchScriptsTest(unittest.TestCase):
 
             final_status = self.wait_for_runtime_status(tmpdir, {"stopped"})
             self.assertEqual(final_status["status"], "stopped")
+
+    def test_runtime_invariants_script_accepts_stopped_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            fake_codex_path = tmpdir / "fake-codex"
+            self.write_sleeping_fake_codex(fake_codex_path)
+
+            self.launch_runtime(tmpdir, fake_codex_path=fake_codex_path)
+            self.wait_for_runtime_status(tmpdir, {"running"})
+            self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "stop",
+                "--repo",
+                str(tmpdir),
+            )
+
+            completed = self.run_script_completed(
+                "check_skill_invariants.py",
+                "runtime",
+                "--repo",
+                str(tmpdir),
+            )
+            completed.check_returncode()
+            self.assertIn("runtime invariants: OK", completed.stdout)
 
     def test_runtime_controller_relaunches_and_then_stops_for_blocked_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

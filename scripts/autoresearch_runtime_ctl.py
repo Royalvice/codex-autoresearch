@@ -71,6 +71,23 @@ def persist_runtime(runtime_path: Path, payload: dict[str, Any]) -> None:
     write_json_atomic(runtime_path, payload)
 
 
+def manifest_config_from_args(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "goal": args.goal,
+        "scope": args.scope,
+        "metric": args.metric_name,
+        "direction": args.direction,
+        "verify": args.verify,
+        "guard": args.guard,
+        "iterations": args.iterations,
+        "run_tag": args.run_tag,
+        "stop_condition": args.stop_condition,
+        "rollback_policy": args.rollback_policy,
+        "parallel_mode": args.parallel_mode,
+        "web_search": args.web_search,
+    }
+
+
 def runtime_summary(
     *,
     repo: Path,
@@ -180,25 +197,11 @@ def create_launch_manifest(args: argparse.Namespace) -> dict[str, Any]:
     if launch_path.exists() and not args.force:
         raise AutoresearchError(f"{launch_path} already exists. Use --force to replace it.")
 
-    config = {
-        "goal": args.goal,
-        "scope": args.scope,
-        "metric": args.metric_name,
-        "direction": args.direction,
-        "verify": args.verify,
-        "guard": args.guard,
-        "iterations": args.iterations,
-        "run_tag": args.run_tag,
-        "stop_condition": args.stop_condition,
-        "rollback_policy": args.rollback_policy,
-        "parallel_mode": args.parallel_mode,
-        "web_search": args.web_search,
-    }
     manifest = build_launch_manifest(
         original_goal=args.original_goal,
         prompt_text=args.prompt_text or args.original_goal,
         mode=args.mode,
-        config=config,
+        config=manifest_config_from_args(args),
         approvals=parse_key_value_pairs(args.approval),
         defaults=parse_key_value_pairs(args.default),
         resume_seed=parse_key_value_pairs(args.resume_seed),
@@ -443,6 +446,42 @@ def stop_runtime(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def add_manifest_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--repo")
+    parser.add_argument("--launch-path")
+    parser.add_argument("--original-goal", required=True)
+    parser.add_argument("--prompt-text")
+    parser.add_argument("--mode", default="loop")
+    parser.add_argument("--goal", required=True)
+    parser.add_argument("--scope", required=True)
+    parser.add_argument("--metric-name", required=True)
+    parser.add_argument("--direction", required=True, choices=["lower", "higher"])
+    parser.add_argument("--verify", required=True)
+    parser.add_argument("--guard")
+    parser.add_argument("--iterations", type=int)
+    parser.add_argument("--run-tag")
+    parser.add_argument("--stop-condition")
+    parser.add_argument("--rollback-policy")
+    parser.add_argument("--parallel-mode", choices=["serial", "parallel"], default="serial")
+    parser.add_argument("--web-search", choices=["enabled", "disabled"], default="disabled")
+    parser.add_argument("--approval", action="append", default=[])
+    parser.add_argument("--default", action="append", default=[])
+    parser.add_argument("--resume-seed", action="append", default=[])
+    parser.add_argument("--note", action="append", default=[])
+    parser.add_argument("--force", action="store_true")
+
+
+def add_runtime_start_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--results-path", default=DEFAULT_RESULTS_PATH)
+    parser.add_argument("--state-path")
+    parser.add_argument("--runtime-path")
+    parser.add_argument("--log-path")
+    parser.add_argument("--sleep-seconds", type=int, default=5)
+    parser.add_argument("--max-stagnation", type=int, default=3)
+    parser.add_argument("--codex-bin", default="codex")
+    parser.add_argument("--codex-arg", action="append", default=[])
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Control the runtime-managed single-entry autoresearch loop."
@@ -450,87 +489,24 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     create = subparsers.add_parser("create-launch", help="Write the confirmed launch manifest.")
-    create.add_argument("--repo")
-    create.add_argument("--launch-path")
-    create.add_argument("--original-goal", required=True)
-    create.add_argument("--prompt-text")
-    create.add_argument("--mode", default="loop")
-    create.add_argument("--goal", required=True)
-    create.add_argument("--scope", required=True)
-    create.add_argument("--metric-name", required=True)
-    create.add_argument("--direction", required=True, choices=["lower", "higher"])
-    create.add_argument("--verify", required=True)
-    create.add_argument("--guard")
-    create.add_argument("--iterations", type=int)
-    create.add_argument("--run-tag")
-    create.add_argument("--stop-condition")
-    create.add_argument("--rollback-policy")
-    create.add_argument("--parallel-mode", choices=["serial", "parallel"], default="serial")
-    create.add_argument("--web-search", choices=["enabled", "disabled"], default="disabled")
-    create.add_argument("--approval", action="append", default=[])
-    create.add_argument("--default", action="append", default=[])
-    create.add_argument("--resume-seed", action="append", default=[])
-    create.add_argument("--note", action="append", default=[])
-    create.add_argument("--force", action="store_true")
+    add_manifest_args(create)
 
     launch = subparsers.add_parser(
         "launch",
         help="Atomically persist the confirmed launch manifest and start the detached runtime.",
     )
-    launch.add_argument("--repo")
-    launch.add_argument("--launch-path")
-    launch.add_argument("--original-goal", required=True)
-    launch.add_argument("--prompt-text")
-    launch.add_argument("--mode", default="loop")
-    launch.add_argument("--goal", required=True)
-    launch.add_argument("--scope", required=True)
-    launch.add_argument("--metric-name", required=True)
-    launch.add_argument("--direction", required=True, choices=["lower", "higher"])
-    launch.add_argument("--verify", required=True)
-    launch.add_argument("--guard")
-    launch.add_argument("--iterations", type=int)
-    launch.add_argument("--run-tag")
-    launch.add_argument("--stop-condition")
-    launch.add_argument("--rollback-policy")
-    launch.add_argument("--parallel-mode", choices=["serial", "parallel"], default="serial")
-    launch.add_argument("--web-search", choices=["enabled", "disabled"], default="disabled")
-    launch.add_argument("--approval", action="append", default=[])
-    launch.add_argument("--default", action="append", default=[])
-    launch.add_argument("--resume-seed", action="append", default=[])
-    launch.add_argument("--note", action="append", default=[])
-    launch.add_argument("--force", action="store_true")
-    launch.add_argument("--results-path", default=DEFAULT_RESULTS_PATH)
-    launch.add_argument("--state-path")
-    launch.add_argument("--runtime-path")
-    launch.add_argument("--log-path")
-    launch.add_argument("--sleep-seconds", type=int, default=5)
-    launch.add_argument("--max-stagnation", type=int, default=3)
-    launch.add_argument("--codex-bin", default="codex")
-    launch.add_argument("--codex-arg", action="append", default=[])
+    add_manifest_args(launch)
+    add_runtime_start_args(launch)
 
     start = subparsers.add_parser("start", help="Start the detached autoresearch runtime.")
     start.add_argument("--repo")
     start.add_argument("--launch-path")
-    start.add_argument("--results-path", default=DEFAULT_RESULTS_PATH)
-    start.add_argument("--state-path")
-    start.add_argument("--runtime-path")
-    start.add_argument("--log-path")
-    start.add_argument("--sleep-seconds", type=int, default=5)
-    start.add_argument("--max-stagnation", type=int, default=3)
-    start.add_argument("--codex-bin", default="codex")
-    start.add_argument("--codex-arg", action="append", default=[])
+    add_runtime_start_args(start)
 
     run = subparsers.add_parser("run", help="Internal loop used by the detached runtime.")
     run.add_argument("--repo")
     run.add_argument("--launch-path")
-    run.add_argument("--results-path", default=DEFAULT_RESULTS_PATH)
-    run.add_argument("--state-path")
-    run.add_argument("--runtime-path")
-    run.add_argument("--log-path")
-    run.add_argument("--sleep-seconds", type=int, default=5)
-    run.add_argument("--max-stagnation", type=int, default=3)
-    run.add_argument("--codex-bin", default="codex")
-    run.add_argument("--codex-arg", action="append", default=[])
+    add_runtime_start_args(run)
 
     status = subparsers.add_parser("status", help="Inspect the current runtime status.")
     status.add_argument("--repo")

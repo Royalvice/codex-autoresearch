@@ -138,6 +138,7 @@ The automated tests are real and useful, but they do **not** all validate the sa
 - `tests/test_autoresearch_scripts.py` executes the helper scripts directly and checks TSV/JSON semantics.
 - `tests/test_check_skill_invariants.py` validates the invariant checker itself.
 - `bash scripts/run_skill_e2e.sh exec-smoke --clean` runs the real skill through `codex exec` in a disposable fixture repo.
+- `bash scripts/run_skill_e2e.sh runtime-smoke --clean` automatically exercises the detached runtime launch/status/stop handoff with an installed skill copy and a fake Codex binary.
 
 That means `python3 -m unittest ...` alone is not enough to prove the skill still works end to end.
 
@@ -149,7 +150,7 @@ Use this gate table:
 | Any `scripts/`, `SKILL.md`, `references/`, invariant, or artifact/state semantics change | `bash scripts/run_contributor_gate.sh skill` |
 | Wizard / ask-before-act / `"go"` boundary / interactive loop behavior | `bash scripts/run_contributor_gate.sh skill` **plus** `bash scripts/run_skill_e2e.sh interactive-smoke` |
 
-The `interactive-smoke` harness prints the exact manual verification steps. Keep it manual; it is meant to verify conversational behavior that the automated gate cannot prove.
+The `interactive-smoke` harness prints the exact manual verification steps. Keep it manual for conversational behavior that the automated gate cannot prove. The detached runtime handoff itself is now covered automatically by `runtime-smoke`.
 
 ## Validating your changes
 
@@ -164,10 +165,11 @@ For real skill-level validation against Codex CLI itself:
 
 ```bash
 bash scripts/run_skill_e2e.sh exec-smoke
+bash scripts/run_skill_e2e.sh runtime-smoke
 bash scripts/run_skill_e2e.sh interactive-smoke
 ```
 
-`exec-smoke` runs the real skill through `codex exec` in a disposable fixture repo and checks artifact invariants. `interactive-smoke` prepares a disposable repo and prints the exact manual wizard/`go` smoke-test steps.
+`exec-smoke` runs the real skill through `codex exec` in a disposable fixture repo and checks artifact invariants. `runtime-smoke` automatically exercises the installed-skill detached runtime handoff. `interactive-smoke` prepares a disposable repo and prints the exact manual wizard/`go` smoke-test steps for the still-human conversational layer.
 
 For interactive behavioral validation, there is no fully automated suite. The skill is Markdown instructions plus helper scripts -- the only way to test wizard and autonomy boundaries is to use it. Symlink your branch, invoke the skill with various prompts, and verify Codex follows the updated instructions.
 
