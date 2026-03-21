@@ -498,6 +498,35 @@ En modo `exec`, la instantanea de estado solo vive bajo `/tmp/codex-autoresearch
 
 Ambos archivos no se commitean en git. Durante la reanudacion de sesion, el estado JSON se valida cruzadamente con un resumen reconstruido de las iteraciones principales TSV, no con el simple conteo de filas. Los resumenes de progreso se imprimen cada 5 iteraciones. Las ejecuciones acotadas imprimen un resumen final de linea base a mejor resultado.
 
+Estos artefactos de estado se mantienen con los helper scripts incluidos en el skill. Llamalos a traves de la ruta del skill instalado, no del directorio `scripts/` del repositorio objetivo. Aqui `<skill-root>` significa el directorio que contiene el `SKILL.md` cargado; en la instalacion repo-local mas comun es `.agents/skills/codex-autoresearch`.
+
+- `python3 <skill-root>/scripts/autoresearch_init_run.py`
+- `python3 <skill-root>/scripts/autoresearch_record_iteration.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_check.py`
+- `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py`
+- `python3 <skill-root>/scripts/autoresearch_exec_state.py`
+- `python3 <skill-root>/scripts/autoresearch_launch_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_prompt.py`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py`
+- `python3 <skill-root>/scripts/autoresearch_commit_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_health_check.py`
+- `python3 <skill-root>/scripts/autoresearch_decision.py`
+- `python3 <skill-root>/scripts/autoresearch_lessons.py`
+- `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
+
+Public human-facing usage now stays on a single entrypoint: **`$codex-autoresearch`**.
+
+- First interactive run: describe the goal naturally, answer the confirmation questions, then reply `go`
+- After `go`, Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically
+- Later `status`, `stop`, and `resume` requests should still go through the same `$codex-autoresearch`
+- `Mode: exec` remains the advanced / CI path
+
+Advanced backend commands remain available for scripting or runtime debugging:
+
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
+
+
 ---
 
 ## Modelo de seguridad
@@ -546,7 +575,23 @@ codex-autoresearch/
       README_PT.md                  # portugues
       README_RU.md                  # ruso
   scripts/
-    validate_skill_structure.sh     # script de validacion de estructura
+    validate_skill_structure.sh     # structure validator
+    autoresearch_helpers.py         # shared TSV / JSON / runtime helpers
+    autoresearch_launch_gate.py     # decide fresh / resumable / needs_human before launch
+    autoresearch_resume_prompt.py   # build the runtime-managed prompt from saved config
+    autoresearch_runtime_ctl.py     # launch / create-launch / start / status / stop runtime controller
+    autoresearch_commit_gate.py     # git / artifact / rollback gate
+    autoresearch_decision.py        # structured keep / discard / crash policy helpers
+    autoresearch_health_check.py    # executable health checks
+    autoresearch_lessons.py         # structured lessons append / list helpers
+    autoresearch_init_run.py        # initialize baseline log + state
+    autoresearch_record_iteration.py # append one main iteration + update state
+    autoresearch_resume_check.py    # decide full_resume / mini_wizard / fallback
+    autoresearch_select_parallel_batch.py # log worker rows + batch winner
+    autoresearch_exec_state.py      # resolve / cleanup exec scratch state
+    autoresearch_supervisor_status.py # decide relaunch / stop / needs_human
+    check_skill_invariants.py       # validate real skill-run artifacts
+    run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # principios universales
     autonomous-loop-protocol.md     # especificacion del protocolo de bucle

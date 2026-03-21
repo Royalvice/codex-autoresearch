@@ -23,6 +23,17 @@ HEADER = [
     "description",
 ]
 EXEC_SCRATCH_ROOT = Path("/tmp/codex-autoresearch-exec")
+LAUNCH_MANIFEST_NAME = "autoresearch-launch.json"
+RUNTIME_STATE_NAME = "autoresearch-runtime.json"
+RUNTIME_LOG_NAME = "autoresearch-runtime.log"
+AUTORESEARCH_OWNED_BASENAMES = {
+    "research-results.tsv",
+    "autoresearch-state.json",
+    "autoresearch-launch.json",
+    "autoresearch-runtime.json",
+    "autoresearch-runtime.log",
+    "autoresearch-lessons.md",
+}
 
 MAIN_LABEL_RE = re.compile(r"^(0|[1-9]\d*)$")
 WORKER_LABEL_RE = re.compile(r"^(0|[1-9]\d*)([a-z]+)$")
@@ -145,6 +156,34 @@ def find_repo_root(start: Path | None = None) -> Path:
     return current
 
 
+def default_launch_manifest_path(cwd: Path | None = None) -> Path:
+    return find_repo_root(cwd) / LAUNCH_MANIFEST_NAME
+
+
+def default_runtime_state_path(cwd: Path | None = None) -> Path:
+    return find_repo_root(cwd) / RUNTIME_STATE_NAME
+
+
+def default_runtime_log_path(cwd: Path | None = None) -> Path:
+    return find_repo_root(cwd) / RUNTIME_LOG_NAME
+
+
+def is_autoresearch_owned_artifact(path: str | Path) -> bool:
+    candidate = Path(path)
+    names = [candidate.name]
+    parent_name = candidate.parent.name
+    if parent_name and parent_name != ".":
+        names.append(parent_name)
+
+    for name in names:
+        if name in AUTORESEARCH_OWNED_BASENAMES:
+            return True
+        for base in AUTORESEARCH_OWNED_BASENAMES:
+            if name.startswith(f"{base}.") or name.endswith(f".{base}"):
+                return True
+    return False
+
+
 def default_exec_state_path(cwd: Path | None = None) -> Path:
     repo_root = find_repo_root(cwd)
     digest = hashlib.sha256(str(repo_root).encode("utf-8")).hexdigest()[:12]
@@ -246,6 +285,30 @@ def read_state_payload(path: Path) -> dict[str, Any]:
         raise AutoresearchError(
             f"Invalid state JSON in {path}: missing state fields: {', '.join(missing_fields)}"
         )
+    return payload
+
+
+def read_launch_manifest(path: Path) -> dict[str, Any]:
+    payload = read_json(path)
+    if not isinstance(payload, dict):
+        raise AutoresearchError(f"Invalid launch manifest in {path}: expected an object")
+    if payload.get("version") != 1:
+        raise AutoresearchError(f"Invalid launch manifest in {path}: unsupported version")
+    if not isinstance(payload.get("original_goal"), str) or not payload["original_goal"].strip():
+        raise AutoresearchError(
+            f"Invalid launch manifest in {path}: missing original_goal"
+        )
+    if not isinstance(payload.get("config"), dict):
+        raise AutoresearchError(f"Invalid launch manifest in {path}: config must be an object")
+    return payload
+
+
+def read_runtime_payload(path: Path) -> dict[str, Any]:
+    payload = read_json(path)
+    if not isinstance(payload, dict):
+        raise AutoresearchError(f"Invalid runtime state in {path}: expected an object")
+    if payload.get("version") != 1:
+        raise AutoresearchError(f"Invalid runtime state in {path}: unsupported version")
     return payload
 
 
@@ -547,6 +610,74 @@ def build_state_payload(
     }
     if supervisor is not None:
         payload["supervisor"] = deepcopy(supervisor)
+    return payload
+
+
+def build_launch_manifest(
+    *,
+    original_goal: str,
+    config: dict[str, Any],
+    mode: str = "loop",
+    approvals: dict[str, Any] | None = None,
+    defaults: dict[str, Any] | None = None,
+    resume_seed: dict[str, Any] | None = None,
+    prompt_text: str | None = None,
+    notes: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "version": 1,
+        "mode": mode,
+        "original_goal": original_goal,
+        "prompt_text": prompt_text or "",
+        "config": deepcopy(config),
+        "approvals": deepcopy(approvals or {}),
+        "defaults": deepcopy(defaults or {}),
+        "resume_seed": deepcopy(resume_seed or {}),
+        "notes": list(notes or []),
+        "created_at": utc_now(),
+        "updated_at": utc_now(),
+    }
+
+
+def build_runtime_payload(
+    *,
+    repo: Path,
+    launch_path: Path,
+    results_path: Path,
+    state_path: Path,
+    log_path: Path,
+    status: str,
+    pid: int | None = None,
+    pgid: int | None = None,
+    terminal_reason: str = "none",
+    command: list[str] | None = None,
+    requested_stop_at: str | None = None,
+    last_decision: str | None = None,
+    last_reason: str | None = None,
+    last_seen_iteration: int | None = None,
+    last_seen_status: str | None = None,
+) -> dict[str, Any]:
+    now = utc_now()
+    payload = {
+        "version": 1,
+        "repo": str(repo),
+        "launch_path": str(launch_path),
+        "results_path": str(results_path),
+        "state_path": str(state_path),
+        "log_path": str(log_path),
+        "status": status,
+        "terminal_reason": terminal_reason,
+        "pid": pid,
+        "pgid": pgid,
+        "command": list(command or []),
+        "requested_stop_at": requested_stop_at,
+        "last_decision": last_decision or "",
+        "last_reason": last_reason or "",
+        "last_seen_iteration": last_seen_iteration,
+        "last_seen_status": last_seen_status or "",
+        "created_at": now,
+        "updated_at": now,
+    }
     return payload
 
 

@@ -498,6 +498,35 @@ Im Modus `exec` existiert der Zustandssnapshot nur unter `/tmp/codex-autoresearc
 
 Beide Dateien werden nicht in git committed. Bei der Sitzungswiederaufnahme wird der JSON-Zustand gegen eine rekonstruierte TSV-Hauptiterationszusammenfassung kreuzvalidiert und nicht gegen die rohe Zeilenanzahl. Fortschrittsberichte werden alle 5 Iterationen ausgegeben. Begrenzte Laeufe geben am Ende eine Zusammenfassung von Baseline bis Bestwert aus.
 
+Diese Zustandsartefakte werden von den mit dem Skill gebuendelten Helper-Skripten verwaltet. Rufe sie ueber den installierten Skill-Pfad auf, nicht ueber das `scripts/`-Verzeichnis des Ziel-Repositories. Hier bezeichnet `<skill-root>` das Verzeichnis mit der geladenen `SKILL.md`; bei der ueblichen repo-lokalen Installation ist das `.agents/skills/codex-autoresearch`.
+
+- `python3 <skill-root>/scripts/autoresearch_init_run.py`
+- `python3 <skill-root>/scripts/autoresearch_record_iteration.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_check.py`
+- `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py`
+- `python3 <skill-root>/scripts/autoresearch_exec_state.py`
+- `python3 <skill-root>/scripts/autoresearch_launch_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_prompt.py`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py`
+- `python3 <skill-root>/scripts/autoresearch_commit_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_health_check.py`
+- `python3 <skill-root>/scripts/autoresearch_decision.py`
+- `python3 <skill-root>/scripts/autoresearch_lessons.py`
+- `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
+
+Public human-facing usage now stays on a single entrypoint: **`$codex-autoresearch`**.
+
+- First interactive run: describe the goal naturally, answer the confirmation questions, then reply `go`
+- After `go`, Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically
+- Later `status`, `stop`, and `resume` requests should still go through the same `$codex-autoresearch`
+- `Mode: exec` remains the advanced / CI path
+
+Advanced backend commands remain available for scripting or runtime debugging:
+
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
+
+
 ---
 
 ## Sicherheitsmodell
@@ -546,7 +575,23 @@ codex-autoresearch/
       README_PT.md                  # Portugiesisch
       README_RU.md                  # Russisch
   scripts/
-    validate_skill_structure.sh     # Strukturvalidierungsskript
+    validate_skill_structure.sh     # structure validator
+    autoresearch_helpers.py         # shared TSV / JSON / runtime helpers
+    autoresearch_launch_gate.py     # decide fresh / resumable / needs_human before launch
+    autoresearch_resume_prompt.py   # build the runtime-managed prompt from saved config
+    autoresearch_runtime_ctl.py     # launch / create-launch / start / status / stop runtime controller
+    autoresearch_commit_gate.py     # git / artifact / rollback gate
+    autoresearch_decision.py        # structured keep / discard / crash policy helpers
+    autoresearch_health_check.py    # executable health checks
+    autoresearch_lessons.py         # structured lessons append / list helpers
+    autoresearch_init_run.py        # initialize baseline log + state
+    autoresearch_record_iteration.py # append one main iteration + update state
+    autoresearch_resume_check.py    # decide full_resume / mini_wizard / fallback
+    autoresearch_select_parallel_batch.py # log worker rows + batch winner
+    autoresearch_exec_state.py      # resolve / cleanup exec scratch state
+    autoresearch_supervisor_status.py # decide relaunch / stop / needs_human
+    check_skill_invariants.py       # validate real skill-run artifacts
+    run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # universelle Prinzipien
     autonomous-loop-protocol.md     # Schleifen-Protokollspezifikation

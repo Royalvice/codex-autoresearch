@@ -498,6 +498,35 @@ iteration  commit   metric  delta   status    description
 
 두 파일 모두 git에 커밋하지 않습니다. 세션 재개 시 JSON 상태는 TSV 메인 반복 요약과 교차 검증되며, 단순 행 수 자체를 기준으로 삼지 않습니다. 진행 요약은 5회 반복마다 출력됩니다. 유한 실행은 마지막에 기준선에서 최고값까지의 요약을 출력합니다.
 
+이 상태 아티팩트는 skill 과 함께 제공되는 helper scripts 가 관리합니다. 대상 저장소 자체의 `scripts/` 디렉터리가 아니라 설치된 skill 경로를 통해 호출하세요. 여기서 `<skill-root>` 는 현재 로드된 `SKILL.md` 가 있는 디렉터리를 뜻하며, 일반적인 repo-local 설치에서는 `.agents/skills/codex-autoresearch` 입니다.
+
+- `python3 <skill-root>/scripts/autoresearch_init_run.py`
+- `python3 <skill-root>/scripts/autoresearch_record_iteration.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_check.py`
+- `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py`
+- `python3 <skill-root>/scripts/autoresearch_exec_state.py`
+- `python3 <skill-root>/scripts/autoresearch_launch_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_prompt.py`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py`
+- `python3 <skill-root>/scripts/autoresearch_commit_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_health_check.py`
+- `python3 <skill-root>/scripts/autoresearch_decision.py`
+- `python3 <skill-root>/scripts/autoresearch_lessons.py`
+- `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
+
+Public human-facing usage now stays on a single entrypoint: **`$codex-autoresearch`**.
+
+- First interactive run: describe the goal naturally, answer the confirmation questions, then reply `go`
+- After `go`, Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically
+- Later `status`, `stop`, and `resume` requests should still go through the same `$codex-autoresearch`
+- `Mode: exec` remains the advanced / CI path
+
+Advanced backend commands remain available for scripting or runtime debugging:
+
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
+
+
 ---
 
 ## 보안 모델
@@ -546,7 +575,23 @@ codex-autoresearch/
       README_PT.md                  # 포르투갈어
       README_RU.md                  # 러시아어
   scripts/
-    validate_skill_structure.sh     # 구조 검증 스크립트
+    validate_skill_structure.sh     # structure validator
+    autoresearch_helpers.py         # shared TSV / JSON / runtime helpers
+    autoresearch_launch_gate.py     # decide fresh / resumable / needs_human before launch
+    autoresearch_resume_prompt.py   # build the runtime-managed prompt from saved config
+    autoresearch_runtime_ctl.py     # launch / create-launch / start / status / stop runtime controller
+    autoresearch_commit_gate.py     # git / artifact / rollback gate
+    autoresearch_decision.py        # structured keep / discard / crash policy helpers
+    autoresearch_health_check.py    # executable health checks
+    autoresearch_lessons.py         # structured lessons append / list helpers
+    autoresearch_init_run.py        # initialize baseline log + state
+    autoresearch_record_iteration.py # append one main iteration + update state
+    autoresearch_resume_check.py    # decide full_resume / mini_wizard / fallback
+    autoresearch_select_parallel_batch.py # log worker rows + batch winner
+    autoresearch_exec_state.py      # resolve / cleanup exec scratch state
+    autoresearch_supervisor_status.py # decide relaunch / stop / needs_human
+    check_skill_invariants.py       # validate real skill-run artifacts
+    run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # 범용 원칙
     autonomous-loop-protocol.md     # 루프 프로토콜 사양

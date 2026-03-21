@@ -53,7 +53,7 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
 
 Write protocol: write to `autoresearch-state.json.tmp`, then rename to `autoresearch-state.json` (atomic). Never commit this file to git.
 
-The `supervisor` object is optional. It is written by the overnight supervisor helper/wrapper, not required for normal session resume, and should be preserved if present.
+The `supervisor` object is optional. It is written by the runtime control plane (`autoresearch_runtime_ctl.py` and `autoresearch_supervisor_status.py`), is not required for normal session resume, and should be preserved if present.
 
 ## Detection Signals
 
@@ -185,22 +185,23 @@ Split the session when any of the following is true:
 
 ### Operator Guidance
 
-For long overnight runs, prefer the bundled supervisor wrapper:
+The public human entry stays `$codex-autoresearch`.
+
+- New interactive run: answer the confirmation questions, then reply `go`.
+- After approval, Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically.
+- Later `status`, `stop`, and `resume` requests should still come through the same skill entrypoint.
+
+Advanced backend commands are available when scripting or debugging the controller:
 
 ```bash
-bash <skill-root>/scripts/autoresearch_supervise.sh \
-  --prompt-file /path/to/prompt.txt \
-  --sleep-seconds 5 \
-  --max-stagnation 3
+python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo /path/to/repo
+python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo /path/to/repo
 ```
 
-This wrapper should be launched by the operator's shell / CI / `tmux` session. It is an outer control loop that starts fresh Codex processes, not something the in-flight Codex session should recursively call itself.
-
-It still relies on the session resume protocol for continuity, but it does not loop forever blindly: after each Codex exit it consults `autoresearch_supervisor_status.py`, relaunches only when the run is still resumable, and stops with `needs_human` when the state is blocked or stagnated.
 
 ## Integration Points
 
-- **autonomous-loop-protocol.md:** Run the resume helper before the full wizard. Initialize new run artifacts only after baseline is measured.
+- **autonomous-loop-protocol.md:** Run the launch gate before the wizard. Initialize new run artifacts only after baseline is measured.
 - **results-logging.md:** Main integer rows define retained state; worker rows are audit detail only.
 - **interaction-wizard.md:** Mini-wizard uses helper mismatch reasons instead of raw row counts.
 - **health-check-protocol.md:** Deep integrity checks use the resume helper, not row-count heuristics.

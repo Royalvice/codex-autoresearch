@@ -498,6 +498,35 @@ iteration  commit   metric  delta   status    description
 
 两个文件都不提交到 git。会话恢复时，JSON 状态会与重建出的 TSV 主迭代摘要交叉验证，而不是直接对比行数。进度摘要每 5 次迭代打印一次。有界运行在最后打印基线到最优的总结。
 
+这些状态工件由随 skill 打包的 helper scripts 维护。请通过已安装 skill 的路径调用它们，而不是调用目标仓库自己的 `scripts/` 目录。这里 `<skill-root>` 指当前加载的 `SKILL.md` 所在目录；常见的 repo-local 安装位置是 `.agents/skills/codex-autoresearch`。
+
+- `python3 <skill-root>/scripts/autoresearch_init_run.py`
+- `python3 <skill-root>/scripts/autoresearch_record_iteration.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_check.py`
+- `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py`
+- `python3 <skill-root>/scripts/autoresearch_exec_state.py`
+- `python3 <skill-root>/scripts/autoresearch_launch_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_prompt.py`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py`
+- `python3 <skill-root>/scripts/autoresearch_commit_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_health_check.py`
+- `python3 <skill-root>/scripts/autoresearch_decision.py`
+- `python3 <skill-root>/scripts/autoresearch_lessons.py`
+- `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
+
+对人类用户来说，现在只保留一个主要入口：**`$codex-autoresearch`**。
+
+- 首次交互运行：自然描述目标，回答确认问题，然后回复 `go`
+- 回复 `go` 后，Codex 会自动写入 `autoresearch-launch.json` 并启动后台 runtime controller
+- 之后如果想看状态、停止、恢复，仍然通过 `$codex-autoresearch` 这个 skill 来做
+- `Mode: exec` 仍然保留给 CI / 高级自动化
+
+如果你在做后端自动化或调试 runtime，也可以直接调用：
+
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
+
+
 ---
 
 ## 安全模型
@@ -547,6 +576,22 @@ codex-autoresearch/
       README_RU.md                  # 俄语
   scripts/
     validate_skill_structure.sh     # 结构验证脚本
+    autoresearch_helpers.py         # 共享 TSV / JSON / runtime helper
+    autoresearch_launch_gate.py     # 判断 fresh / resumable / needs_human
+    autoresearch_resume_prompt.py   # 从 launch manifest 生成 runtime prompt
+    autoresearch_runtime_ctl.py     # launch / create-launch / start / status / stop
+    autoresearch_commit_gate.py     # git / artifact / rollback gate
+    autoresearch_decision.py        # 结构化 keep / discard / crash 决策
+    autoresearch_health_check.py    # 可执行 health check
+    autoresearch_lessons.py         # lessons 追加 / 列表
+    autoresearch_init_run.py        # 初始化基线日志与状态
+    autoresearch_record_iteration.py # 追加一次主迭代并更新状态
+    autoresearch_resume_check.py    # 判断 full_resume / mini_wizard / fallback
+    autoresearch_select_parallel_batch.py # 记录 worker 行并选出胜者
+    autoresearch_exec_state.py      # 解析 / 清理 exec scratch state
+    autoresearch_supervisor_status.py # 判断 relaunch / stop / needs_human
+    check_skill_invariants.py       # 校验真实 skill 运行产物
+    run_skill_e2e.sh                # 一次性 Codex CLI 冒烟 harness
   references/
     core-principles.md              # 通用原则
     autonomous-loop-protocol.md     # 循环协议规范

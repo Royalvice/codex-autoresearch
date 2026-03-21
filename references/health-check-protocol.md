@@ -2,6 +2,11 @@
 
 Self-monitoring system that validates environment and run integrity at iteration boundaries. Catches problems before they corrupt results.
 
+The executable companions are:
+
+- `python3 <skill-root>/scripts/autoresearch_health_check.py`
+- `python3 <skill-root>/scripts/autoresearch_commit_gate.py`
+
 ## Check Frequency
 
 Here `<skill-root>` means the directory containing the loaded `SKILL.md`.
@@ -97,5 +102,5 @@ Thresholds:
 - **environment-awareness.md:** Initial probes establish baselines for drift detection.
 - **parallel-experiments-protocol.md:** Check worktree health before each parallel batch.
 - **results-logging.md:** Health warnings are logged in the description column.
-- **session-resume-protocol.md:** JSON/TSV integrity checks use the resume helper instead of raw row-count heuristics.
+- **session-resume-protocol.md:** JSON/TSV integrity checks use the resume helper and launch/runtime control files instead of raw row-count heuristics.
 - **SKILL.md:** Listed in the load order for iterating modes.

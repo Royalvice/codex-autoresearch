@@ -484,10 +484,13 @@ See `references/exec-workflow.md`.
 
 ## Results Log
 
-Every iteration is recorded in two complementary formats:
+Every iteration is recorded in complementary artifacts:
 
 - **`research-results.tsv`** -- full audit trail, with one main row per iteration plus optional parallel worker rows
 - **`autoresearch-state.json`** -- compact state snapshot for fast session resume in interactive modes
+- **`autoresearch-launch.json`** -- confirmed launch manifest written after the user says `go`
+- **`autoresearch-runtime.json`** -- runtime control state (PID, status, last decision)
+- **`autoresearch-runtime.log`** -- detached runtime log for long runs
 
 In `exec` mode, the state snapshot is scratch-only under `/tmp/codex-autoresearch-exec/...` and is cleaned up before exit.
 
@@ -499,7 +502,7 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-Both files stay uncommitted and are treated as autoresearch-owned artifacts, not normal experiment diffs. On session resume, the JSON state is cross-validated against a reconstructed TSV main-iteration summary instead of raw row counts. Progress summaries print every 5 iterations. Bounded runs print a final baseline-to-best summary.
+These files stay uncommitted and are treated as autoresearch-owned artifacts, not normal experiment diffs. On session resume, the JSON state is cross-validated against a reconstructed TSV main-iteration summary instead of raw row counts. Progress summaries print every 5 iterations. Bounded runs print a final baseline-to-best summary.
 
 Stateful artifact updates are backed by bundled helper scripts. Call them via the installed skill path, not the target repo's own `scripts/` directory. Here `<skill-root>` means the directory containing the loaded `SKILL.md`; in the common repo-local install this is `.agents/skills/codex-autoresearch`.
 
@@ -508,8 +511,27 @@ Stateful artifact updates are backed by bundled helper scripts. Call them via th
 - `python3 <skill-root>/scripts/autoresearch_resume_check.py`
 - `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py`
 - `python3 <skill-root>/scripts/autoresearch_exec_state.py`
+- `python3 <skill-root>/scripts/autoresearch_launch_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_resume_prompt.py`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py`
+- `python3 <skill-root>/scripts/autoresearch_commit_gate.py`
+- `python3 <skill-root>/scripts/autoresearch_health_check.py`
+- `python3 <skill-root>/scripts/autoresearch_decision.py`
+- `python3 <skill-root>/scripts/autoresearch_lessons.py`
 - `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
-- `bash <skill-root>/scripts/autoresearch_supervise.sh --prompt-file <prompt-file>` (launch this from your shell/CI/tmux; it starts fresh Codex sessions externally)
+
+Human-facing usage now has a single entrypoint: **`$codex-autoresearch`**.
+
+- First interactive run: describe the goal naturally, answer the confirmation questions, then reply `go`.
+- After `go`, Codex calls `autoresearch_runtime_ctl.py launch`, which atomically writes `autoresearch-launch.json` and starts the detached runtime controller.
+- Later `status`, `stop`, or `resume` requests should still go through `$codex-autoresearch`; the skill uses `autoresearch_runtime_ctl.py` internally.
+- `Mode: exec` remains the advanced / CI path for fully specified non-interactive runs.
+
+Advanced backend usage is available when you are scripting or debugging the runtime directly:
+
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
+- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
+
 
 ---
 
@@ -562,13 +584,19 @@ codex-autoresearch/
     validate_skill_structure.sh     # structure validator
     run_contributor_gate.sh         # contributor acceptance gate
     autoresearch_helpers.py         # shared TSV/JSON helpers
+    autoresearch_launch_gate.py     # decide fresh / resumable / needs_human before launch
+    autoresearch_resume_prompt.py   # build the runtime-managed prompt from saved config
+    autoresearch_runtime_ctl.py     # launch / create-launch / start / status / stop runtime controller
+    autoresearch_commit_gate.py     # git/artifact/rollback gate
+    autoresearch_decision.py        # structured keep/discard/crash policy helpers
+    autoresearch_health_check.py    # executable health checks
+    autoresearch_lessons.py         # structured lessons append/list helpers
     autoresearch_init_run.py        # initialize baseline log + state
     autoresearch_record_iteration.py # append one main iteration + update state
     autoresearch_resume_check.py    # decide full_resume / mini_wizard / fallback
     autoresearch_select_parallel_batch.py # log worker rows + batch winner
     autoresearch_exec_state.py      # resolve / cleanup exec scratch state
     autoresearch_supervisor_status.py # decide relaunch / stop / needs_human
-    autoresearch_supervise.sh       # state-aware fresh-session overnight wrapper
     check_skill_invariants.py       # validate real skill-run artifacts
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   tests/
@@ -604,7 +632,7 @@ codex-autoresearch/
 
 **Works with any language?** Yes. The protocol is language-agnostic. Only the verify command is domain-specific.
 
-**How do I stop it?** Interrupt Codex, or set `Iterations: N`. Git state is always consistent because commits happen before verification.
+**How do I stop it?** Ask `$codex-autoresearch` to stop the current run, or call `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>` if you are automating the backend directly. `Iterations: N` and stop conditions still work too.
 
 **Does security mode touch my code?** No. Read-only analysis. Tell Codex to "also fix critical findings" during setup to opt into remediation.
 
@@ -612,7 +640,7 @@ codex-autoresearch/
 
 **Does it learn across runs?** Yes. Lessons are extracted after each run and consulted at the start of the next one. The lessons file persists across sessions.
 
-**Can it resume after an interruption?** Yes. On the next invocation, it detects the prior run and resumes from the last consistent state.
+**Can it resume after an interruption?** Yes. The runtime reuses `autoresearch-launch.json`, `research-results.tsv`, and `autoresearch-state.json` to resume from the last consistent state.
 
 **Can it search the web?** Yes, when stuck after multiple strategy pivots. Web search results are treated as hypotheses and verified mechanically.
 

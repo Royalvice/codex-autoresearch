@@ -35,6 +35,12 @@ Fail fast if the loop would be unsafe. Clarify first if the intent is unclear.
 
 Before anything else, check for a prior interrupted run per `references/session-resume-protocol.md`:
 
+Use the launch gate first:
+
+```bash
+python3 <skill-root>/scripts/autoresearch_launch_gate.py ...
+```
+
 1. Check for `autoresearch-state.json` first (primary recovery source), then `research-results.tsv`, `autoresearch-lessons.md`, and recent `experiment:` commits.
 2. Apply the Recovery Priority Matrix from `session-resume-protocol.md`:
    - JSON valid + TSV consistent -> full resume (skip wizard).
@@ -42,6 +48,11 @@ Before anything else, check for a prior interrupted run per `references/session-
    - JSON missing + TSV exists -> legacy TSV fallback.
    - JSON corrupt -> rename to `.bak`, fall back to TSV.
 3. If no prior run is detected, proceed with fresh setup.
+
+Launch-gate interpretation:
+- `fresh` -> continue with the confirmation flow for a new launch.
+- `resumable` -> resume from saved state without inventing a second operator entrypoint.
+- `needs_human` / `blocked_start` -> report the issue or service the runtime-control request first.
 
 Exec-mode exception:
 - Do not resume a prior run.
@@ -86,7 +97,7 @@ Before starting any interactive loop, ALWAYS:
 
 Never silently infer all fields and start iterating. A 30-second confirmation is always cheaper than wasted iterations.
 
-**Two-phase boundary:** All questions happen BEFORE launch. Once the user says "go", the loop becomes fully autonomous. NEVER pause to ask the user anything during the loop -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity mid-loop, apply best practices, log your reasoning in the commit message, and keep iterating. The user may be asleep.
+**Two-phase boundary:** All questions happen BEFORE launch. Once the user says "go", call `autoresearch_runtime_ctl.py launch` so the confirmed launch manifest and detached runtime are created in one script-level handoff. The long-running loop should continue through the runtime, not stay bound to the same foreground turn. After launch, NEVER pause to ask the user anything during the loop -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity mid-loop, apply best practices, log your reasoning in the commit message, and keep iterating. The user may be asleep.
 
 Exec-mode exception:
 - Do not ask clarifying or launch questions.
@@ -110,6 +121,9 @@ Treat these files as experiment-owned artifacts, not unrelated user changes:
 
 - `research-results.tsv`
 - `autoresearch-state.json`
+- `autoresearch-launch.json`
+- `autoresearch-runtime.json`
+- `autoresearch-runtime.log`
 - `autoresearch-lessons.md`
 - `.tmp`, `.bak`, and `.prev` variants of those files
 

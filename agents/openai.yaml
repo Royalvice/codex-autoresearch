@@ -2,7 +2,7 @@ interface:
   display_name: "Codex Autoresearch"
   short_description: "Unattended improve-verify loop"
   brand_color: "#2563EB"
-  default_prompt: "Use $codex-autoresearch to infer a goal, metric, scope, and verify/guard commands for this repo, confirm once, then iterate autonomously until blocked or I stop it."
+  default_prompt: "Use $codex-autoresearch as the single human entrypoint: infer a goal, metric, scope, and verify/guard commands for this repo, confirm once, then launch the runtime-managed loop. Reuse the same skill for status or stop requests."
 
 policy:
   allow_implicit_invocation: true

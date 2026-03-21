@@ -20,6 +20,7 @@ When this file mentions `<skill-root>`, it means the directory containing the lo
 6. Up to 5 clarification rounds are allowed before launching. But never zero rounds.
 7. Present a structured confirmation summary before launching (see Confirmation Format below).
 8. The user should never see raw field names (Goal, Scope, Metric, Direction, Verify, Guard). Translate everything into natural conversation.
+9. After the user approves the summary, persist the confirmed launch manifest and start the runtime controller. Do not tell the user to switch to a different wrapper command.
 
 ## Clarification Protocol
 
@@ -64,7 +65,7 @@ Before launching, present a structured confirmation summary. The user should be 
 - Any other safety checks beyond tsc?
 
 **Next step**
-- Reply "go" to start, or tell me what to change.
+- Reply "go" to start the managed run, or tell me what to change.
 ```
 
 #### Chinese Format
@@ -81,7 +82,7 @@ Before launching, present a structured confirmation summary. The user should be 
 - 除了 tsc 还有其他安全检查吗？
 
 **下一步**
-- 回复 "go" 开始，或告诉我要改什么。
+- 回复 "go" 启动托管运行，或告诉我要改什么。
 ```
 
 #### Format Rules
@@ -93,6 +94,15 @@ Before launching, present a structured confirmation summary. The user should be 
 5. End with a clear call to action.
 
 The user replies "go", "start", "launch", or corrects something. No field names, no YAML, no structured input required.
+
+## Launch Handoff
+
+When the user replies with launch approval (`go`, `start`, `launch`, or an equivalent clear confirmation):
+
+1. Persist the confirmed config to `autoresearch-launch.json`.
+2. Start the detached runtime controller.
+3. Report that the managed run has started and where the runtime/log artifacts live.
+4. Do not ask the user to rerun a shell wrapper command just to continue overnight.
 
 ## Question Reference
 

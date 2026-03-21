@@ -163,7 +163,7 @@ Codex infers these from your natural language input and repo context. You never 
 | `Guard` | none | Regression-prevention command that must always pass |
 | `Iterations` | unlimited | Stop after N iterations |
 | `Run tag` | auto-generated | Label for this run in the results log |
-| `Stop condition` | none | Custom early-stop rule (e.g., "stop when metric reaches 0") |
+| `Stop condition` | none | Custom early-stop rule (e.g., "stop when metric reaches 1" or "stop when metric reaches 90") |
 
 ### Bounded vs unbounded runs
 
@@ -540,20 +540,30 @@ You do not need to do anything to enable this. It runs automatically as part of 
 
 If the context has been compacted twice or more, or the iteration counter reaches 40, the agent will proactively stop the loop and save a checkpoint. The results log will contain a `[SESSION-SPLIT]` entry with the reason. Simply re-invoke the skill to resume -- session resume picks up exactly where the split occurred.
 
-### Overnight Wrapper
+### Managed Runtime
 
-For truly long runs (overnight, multi-day), prefer the bundled supervisor wrapper:
+The public human workflow now stays on a single entrypoint: `$codex-autoresearch`.
+
+1. Start the skill and describe the goal naturally.
+2. Answer the confirmation questions.
+3. Reply `go`.
+4. Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically.
+
+After that, the run continues through fresh Codex sessions in the background until a terminal condition, blocker, or explicit stop request.
+
+Use the same skill entry for follow-up control:
+
+- ask for status -> the skill reads the runtime controller state
+- ask to stop -> the skill stops the runtime controller
+- ask to resume -> the skill checks launch/runtime state and continues if safe
+
+Advanced backend commands are still available for scripting or debugging:
 
 ```bash
-bash <skill-root>/scripts/autoresearch_supervise.sh \
-  --prompt-file /path/to/prompt.txt \
-  --sleep-seconds 5 \
-  --max-stagnation 3
+python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo /path/to/repo
+python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo /path/to/repo
 ```
 
-Run this wrapper from your shell, `tmux`, `screen`, or CI job. It is an outer supervisor that launches fresh Codex processes; it is not something the inner Codex session should recursively invoke.
-
-It still uses fresh Codex sessions, but it does not restart blindly. After each exit it checks `research-results.tsv` + `autoresearch-state.json`, decides `relaunch / stop / needs_human`, and stops automatically if the run is blocked or exits repeatedly without changing state.
 
 ---
 
@@ -603,6 +613,10 @@ This should not happen. Rule 1 requires at least one confirming question. If it 
 ### The loop stops and asks a question
 
 This should not happen after you say "go." If it does, report it as a bug. The two-phase boundary is a hard rule.
+
+### How do I see runtime status or stop a run?
+
+Use the same `$codex-autoresearch` entry and ask for status or stop. For backend automation, call `autoresearch_runtime_ctl.py status` or `autoresearch_runtime_ctl.py stop` directly. The interactive `go` handoff now goes through `autoresearch_runtime_ctl.py launch`.
 
 ### The verify command fails on the first run
 

@@ -25,7 +25,7 @@ BUNDLED_HELPER_RE = re.compile(
     r"|/etc/codex/skills/[^\s\"']+"
     r"|(?:~|/)[^\s\"']*/codex-autoresearch"
     r")/scripts/"
-    r"autoresearch_(init_run|record_iteration|resume_check|select_parallel_batch|exec_state)\.py\b"
+    r"autoresearch_(init_run|record_iteration|resume_check|select_parallel_batch|exec_state|launch_gate|resume_prompt|runtime_ctl|commit_gate|decision|health_check|lessons)\.py\b"
 )
 
 

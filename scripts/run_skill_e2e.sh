@@ -167,6 +167,7 @@ $(sed 's/^/   /' "$repo/prompt.txt")
    - You reply: go
 
 4. Expected behavior after "go":
+   - Codex performs a single launch handoff that writes autoresearch-launch.json and starts the detached runtime controller.
    - Codex stops asking questions.
    - It iterates autonomously until tests pass or you interrupt it.
 

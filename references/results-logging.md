@@ -113,7 +113,7 @@ Define `<skill-root>` as the directory that contains the loaded `SKILL.md`. In t
 - `python3 <skill-root>/scripts/autoresearch_exec_state.py`
   Prints the deterministic exec scratch-state path under `/tmp` and cleans it up on `--cleanup`.
 - `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
-  Computes whether an external overnight wrapper should relaunch, stop, or ask for human help.
+  Computes whether the runtime control plane should relaunch, stop, or ask for human help after a finished turn.
 
 In exec mode, the helper scripts keep JSON state in scratch storage by default instead of repo-root `autoresearch-state.json`. Clean that scratch state before exiting so exec persists only `research-results.tsv`.
 
