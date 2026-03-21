@@ -2914,6 +2914,123 @@ class AutoresearchScriptsTest(unittest.TestCase):
             )
             self.assertEqual(stopped["status"], "stopped")
 
+    def test_runtime_launch_fresh_start_in_git_repo_accepts_prev_archives(self) -> None:
+        with tempfile.TemporaryDirectory() as repo_tmp, tempfile.TemporaryDirectory() as tool_tmp:
+            repo = Path(repo_tmp)
+            tool_dir = Path(tool_tmp)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.email", "a@b.c"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.name", "t"], cwd=repo, check=True)
+
+            fake_codex_path = tool_dir / "fake-codex"
+            self.write_sleeping_fake_codex(fake_codex_path)
+
+            (repo / "research-results.tsv").write_text(
+                "iteration\tcommit\tmetric\tdelta\tguard\tstatus\tdescription\n"
+                "0\tabc1234\t10\t0\t-\tbaseline\told baseline\n",
+                encoding="utf-8",
+            )
+            (repo / "autoresearch-state.json").write_text("{}\n", encoding="utf-8")
+            (repo / "autoresearch-launch.json").write_text("{}\n", encoding="utf-8")
+            (repo / "autoresearch-runtime.json").write_text(
+                json.dumps({"status": "terminal", "pid": 12345}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            launched = self.launch_runtime(
+                repo,
+                fake_codex_path=fake_codex_path,
+                original_goal="New goal",
+                goal="Reduce failures",
+                fresh_start=True,
+            )
+            self.assertEqual(launched["status"], "running")
+            self.assertTrue((repo / "research-results.prev.tsv").exists())
+            self.assertTrue((repo / "autoresearch-state.prev.json").exists())
+            self.assertTrue((repo / "autoresearch-launch.prev.json").exists())
+            self.assertTrue((repo / "autoresearch-runtime.prev.json").exists())
+
+            stopped = self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "stop",
+                "--repo",
+                str(repo),
+            )
+            self.assertEqual(stopped["status"], "stopped")
+
+    def test_runtime_launch_fresh_start_refuses_when_runtime_is_alive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            fake_codex_path = tmpdir / "fake-codex"
+            self.write_sleeping_fake_codex(fake_codex_path)
+
+            sleeper = subprocess.Popen(["sleep", "30"])
+            try:
+                (tmpdir / "autoresearch-launch.json").write_text(
+                    json.dumps({"status": "stale manifest"}, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                runtime_path = tmpdir / "autoresearch-runtime.json"
+                runtime_path.write_text(
+                    json.dumps(
+                        {
+                            "version": 1,
+                            "repo": str(tmpdir),
+                            "launch_path": str(tmpdir / "autoresearch-launch.json"),
+                            "results_path": str(tmpdir / "research-results.tsv"),
+                            "state_path": str(tmpdir / "autoresearch-state.json"),
+                            "log_path": str(tmpdir / "autoresearch-runtime.log"),
+                            "status": "running",
+                            "terminal_reason": "none",
+                            "pid": sleeper.pid,
+                            "pgid": None,
+                            "command": [],
+                            "requested_stop_at": None,
+                            "last_decision": "",
+                            "last_reason": "",
+                            "last_seen_iteration": None,
+                            "last_seen_status": "",
+                            "created_at": "2026-03-21T00:00:00Z",
+                            "updated_at": "2026-03-21T00:00:00Z",
+                        },
+                        indent=2,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                completed = self.run_script_completed(
+                    "autoresearch_runtime_ctl.py",
+                    "launch",
+                    "--fresh-start",
+                    "--repo",
+                    str(tmpdir),
+                    "--original-goal",
+                    "New goal",
+                    "--mode",
+                    "loop",
+                    "--goal",
+                    "Reduce failures",
+                    "--scope",
+                    "src/**/*.py",
+                    "--metric-name",
+                    "failure count",
+                    "--direction",
+                    "lower",
+                    "--verify",
+                    "python3 -c pass",
+                    "--guard",
+                    "python -m py_compile src",
+                    "--codex-bin",
+                    str(fake_codex_path),
+                )
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertIn("already running", completed.stderr)
+                self.assertTrue(runtime_path.exists())
+                self.assertFalse((tmpdir / "autoresearch-runtime.prev.json").exists())
+            finally:
+                sleeper.terminate()
+                sleeper.wait()
+
     def test_runtime_stop_appends_summary_lesson_when_state_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)

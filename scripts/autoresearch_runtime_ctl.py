@@ -71,6 +71,17 @@ def load_runtime_if_exists(runtime_path: Path) -> dict[str, Any] | None:
     return read_runtime_payload(runtime_path)
 
 
+def ensure_runtime_not_running(runtime_path: Path, *, tolerate_invalid: bool = False) -> None:
+    try:
+        existing = load_runtime_if_exists(runtime_path)
+    except AutoresearchError:
+        if tolerate_invalid:
+            return
+        raise
+    if existing is not None and pid_is_alive(existing.get("pid")):
+        raise AutoresearchError("An autoresearch runtime is already running for this repo.")
+
+
 def persist_runtime(runtime_path: Path, payload: dict[str, Any]) -> None:
     payload = dict(payload)
     payload["updated_at"] = utc_now()
@@ -309,9 +320,7 @@ def start_runtime(args: argparse.Namespace) -> dict[str, Any]:
     log_path = resolve_repo_relative(repo, args.log_path, default_runtime_log_path(repo))
     state_path_arg = args.state_path
 
-    existing = load_runtime_if_exists(runtime_path)
-    if existing is not None and pid_is_alive(existing.get("pid")):
-        raise AutoresearchError("An autoresearch runtime is already running for this repo.")
+    ensure_runtime_not_running(runtime_path)
 
     launch_context = evaluate_launch_context(
         results_path=results_path,
@@ -411,6 +420,7 @@ def launch_and_start_runtime(args: argparse.Namespace) -> dict[str, Any]:
     launch_path = resolve_repo_relative(repo, args.launch_path, default_launch_manifest_path(repo))
     runtime_path = resolve_repo_relative(repo, args.runtime_path, default_runtime_state_path(repo))
     log_path = resolve_repo_relative(repo, args.log_path, default_runtime_log_path(repo))
+    ensure_runtime_not_running(runtime_path, tolerate_invalid=args.fresh_start)
     if args.fresh_start:
         results_path = resolve_repo_relative(repo, args.results_path, repo / DEFAULT_RESULTS_PATH)
         archived_paths = archive_interactive_fresh_start_artifacts(

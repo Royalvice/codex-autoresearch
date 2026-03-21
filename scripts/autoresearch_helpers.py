@@ -202,11 +202,29 @@ def is_autoresearch_owned_artifact(path: str | Path) -> bool:
         names.append(parent_name)
 
     for name in names:
-        if name in AUTORESEARCH_OWNED_BASENAMES:
-            return True
-        for base in AUTORESEARCH_OWNED_BASENAMES:
-            if name.startswith(f"{base}.") or name.endswith(f".{base}"):
+        pending = [name]
+        seen = set()
+        while pending:
+            current = pending.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            if current in AUTORESEARCH_OWNED_BASENAMES:
                 return True
+            for base in AUTORESEARCH_OWNED_BASENAMES:
+                if current.startswith(f"{base}.") or current.endswith(f".{base}"):
+                    return True
+
+            path_name = Path(current)
+            suffix = path_name.suffix
+            if suffix:
+                stem = path_name.stem
+                for marker in (".prev", ".bak", ".tmp"):
+                    if stem.endswith(marker):
+                        pending.append(f"{stem[: -len(marker)]}{suffix}")
+            for marker in (".prev", ".bak", ".tmp"):
+                if current.endswith(marker):
+                    pending.append(current[: -len(marker)])
     return False
 
 
