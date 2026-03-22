@@ -13,6 +13,8 @@ from autoresearch_helpers import (
     parse_scope_patterns,
     path_is_in_scope,
 )
+
+
 def evaluate_commit_gate(
     *,
     repo: Path,
