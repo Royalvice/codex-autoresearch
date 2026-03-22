@@ -517,6 +517,7 @@ Para usuarios humanos, agora existe apenas uma entrada principal: **`$codex-auto
 
 - Na primeira execucao interativa, descreva o objetivo naturalmente, responda as perguntas de confirmacao e depois diga `go`
 - Depois de `go`, o Codex grava `autoresearch-launch.json` e inicia automaticamente o controlador de execucao desacoplado
+- Cada ciclo gerenciado seguinte executa uma sessao nao interativa de `codex exec`, passando o prompt do runtime via stdin
 - Pedidos posteriores de `status`, `stop` ou `resume` continuam passando pelo mesmo `$codex-autoresearch`
 - `Mode: exec` continua sendo o caminho avancado para CI ou automacao totalmente especificada
 

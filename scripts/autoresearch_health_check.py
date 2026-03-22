@@ -3,15 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import re
-import shlex
 import shutil
 from pathlib import Path
 from typing import Any
 
 from autoresearch_helpers import (
     AutoresearchError,
+    command_is_executable,
     git_status_paths,
     has_git_repo,
     is_autoresearch_owned_artifact,
@@ -21,33 +19,6 @@ from autoresearch_helpers import (
     results_repo_root,
 )
 from autoresearch_resume_check import evaluate_resume_state
-
-
-ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
-
-
-def verify_command_exists(command: str) -> bool:
-    if not command.strip():
-        return False
-    try:
-        parts = shlex.split(command)
-    except ValueError:
-        return False
-    if not parts:
-        return False
-    executable = ""
-    for part in parts:
-        if ENV_ASSIGNMENT_RE.fullmatch(part):
-            continue
-        executable = part
-        break
-    if not executable:
-        return False
-
-    candidate = Path(executable)
-    if candidate.is_absolute() or "/" in executable or "\\" in executable:
-        return candidate.is_file() and os.access(candidate, os.X_OK)
-    return shutil.which(executable) is not None
 
 
 def run_health_check(
@@ -98,7 +69,7 @@ def run_health_check(
         if unexpected:
             warnings.append("unexpected worktree changes: " + ", ".join(sorted(unexpected)))
 
-    if not verify_command_exists(verify_command):
+    if not command_is_executable(verify_command):
         blockers.append(f"verify command is not executable: {verify_command}")
 
     decision = "ok"

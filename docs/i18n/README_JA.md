@@ -517,6 +517,7 @@ iteration  commit   metric  delta   status    description
 
 - 最初の対話実行では、目標を自然に説明し、確認の質問に答え、そのあと `go` と返します
 - `go` のあと、Codex は `autoresearch-launch.json` を書き込み、切り離された実行コントローラを自動で起動します
+- その後の各 managed runtime cycle は、runtime prompt を stdin で渡した非対話の `codex exec` セッションとして実行されます
 - その後の `status`、`stop`、`resume` も同じ `$codex-autoresearch` から行います
 - `Mode: exec` は、CI や完全に指定された自動化向けの上級パスとして残ります
 

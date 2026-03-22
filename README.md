@@ -525,6 +525,8 @@ Human-facing usage now has a single entrypoint: **`$codex-autoresearch`**.
 
 - First interactive run: describe the goal naturally, answer the confirmation questions, then reply `go`.
 - After `go`, Codex calls `autoresearch_runtime_ctl.py launch`, which atomically writes `autoresearch-launch.json` and starts the detached runtime controller.
+- Each detached runtime cycle launches a non-interactive `codex exec` session with the runtime prompt fed on stdin, so it does not depend on the interactive TUI.
+- If the runtime cannot launch that `codex exec` session at all, it transitions to `needs_human` instead of silently falling back to an idle state.
 - Before the detached runtime starts a session or relaunches one, it runs a script-level preflight: `autoresearch_health_check.py` for integrity checks and `autoresearch_commit_gate.py` for scope-aware git safety.
 - Later `status`, `stop`, or `resume` requests should still go through `$codex-autoresearch`; the skill uses `autoresearch_runtime_ctl.py` internally.
 - `Mode: exec` remains the advanced / CI path for fully specified non-interactive runs.

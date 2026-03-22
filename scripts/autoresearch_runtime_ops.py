@@ -15,6 +15,7 @@ from autoresearch_helpers import (
     archive_path_to_prev,
     build_launch_manifest,
     build_runtime_payload,
+    command_is_executable,
     default_launch_manifest_path,
     default_runtime_log_path,
     default_runtime_state_path,
@@ -42,6 +43,36 @@ from autoresearch_runtime_common import (
     resolve_repo_path,
     resolve_repo_relative,
 )
+
+
+def build_codex_exec_command(
+    *,
+    codex_bin: str,
+    codex_args: list[str],
+    repo: Path,
+) -> list[str]:
+    return [codex_bin, "exec", *codex_args, "-C", str(repo), "-"]
+
+
+def mark_runtime_needs_human(
+    *,
+    runtime: dict[str, Any],
+    runtime_path: Path,
+    launch_context: dict[str, Any],
+    reason: str,
+    error: str | None = None,
+) -> int:
+    runtime["status"] = "needs_human"
+    runtime["terminal_reason"] = reason
+    runtime["last_decision"] = "needs_human"
+    runtime["last_reason"] = reason
+    runtime["launch_context"] = launch_context
+    if error:
+        runtime["last_error"] = error
+    else:
+        runtime.pop("last_error", None)
+    persist_runtime(runtime_path, runtime)
+    return 2
 
 
 def runtime_summary(
@@ -83,7 +114,7 @@ def runtime_summary(
         }
 
     if runtime is not None and runtime.get("status") in {"terminal", "needs_human", "stopped"}:
-        return {
+        payload = {
             "status": runtime.get("status"),
             "pid": runtime.get("pid"),
             "pgid": runtime.get("pgid"),
@@ -96,6 +127,9 @@ def runtime_summary(
             "last_health_check": runtime.get("last_health_check"),
             "last_commit_gate": runtime.get("last_commit_gate"),
         }
+        if runtime.get("last_error"):
+            payload["error"] = runtime["last_error"]
+        return payload
 
     launch_context = evaluate_launch_context(
         results_path=results_path,
@@ -241,6 +275,9 @@ def start_runtime(args: argparse.Namespace, *, runner_path: Path) -> dict[str, A
     runtime_path = resolve_repo_relative(repo, args.runtime_path, default_runtime_state_path(repo))
     log_path = resolve_repo_relative(repo, args.log_path, default_runtime_log_path(repo))
     state_path_arg = args.state_path
+
+    if not command_is_executable(args.codex_bin):
+        raise AutoresearchError(f"Codex executable is not available: {args.codex_bin}")
 
     ensure_runtime_not_running(runtime_path)
 
@@ -424,13 +461,12 @@ def run_runtime(args: argparse.Namespace) -> int:
         runtime["last_health_check"] = preflight["health_check"]
         runtime["last_commit_gate"] = preflight["commit_gate"]
         if preflight["decision"] == "block":
-            runtime["status"] = "needs_human"
-            runtime["terminal_reason"] = preflight["reason"]
-            runtime["last_decision"] = "needs_human"
-            runtime["last_reason"] = preflight["reason"]
-            runtime["launch_context"] = launch_context
-            persist_runtime(runtime_path, runtime)
-            return 2
+            return mark_runtime_needs_human(
+                runtime=runtime,
+                runtime_path=runtime_path,
+                launch_context=launch_context,
+                reason=preflight["reason"],
+            )
 
         prompt_text = build_runtime_prompt(
             launch_manifest=launch_manifest,
@@ -439,8 +475,35 @@ def run_runtime(args: argparse.Namespace) -> int:
             results_path=results_path,
             state_path=Path(launch_context["state_path"]),
         )
-        codex_cmd = [args.codex_bin, *codex_args, "-C", str(repo), prompt_text]
-        codex_exit = subprocess.run(codex_cmd, cwd=repo).returncode
+        runtime.pop("last_error", None)
+        if not command_is_executable(args.codex_bin):
+            return mark_runtime_needs_human(
+                runtime=runtime,
+                runtime_path=runtime_path,
+                launch_context=launch_context,
+                reason="codex_exec_unavailable",
+                error=f"Codex executable is not available: {args.codex_bin}",
+            )
+        codex_cmd = build_codex_exec_command(
+            codex_bin=args.codex_bin,
+            codex_args=codex_args,
+            repo=repo,
+        )
+        try:
+            codex_exit = subprocess.run(
+                codex_cmd,
+                cwd=repo,
+                input=prompt_text,
+                text=True,
+            ).returncode
+        except OSError as exc:
+            return mark_runtime_needs_human(
+                runtime=runtime,
+                runtime_path=runtime_path,
+                launch_context=launch_context,
+                reason="codex_exec_unavailable",
+                error=f"Failed to launch codex exec: {exc}",
+            )
 
         supervisor = evaluate_supervisor_status(
             results_path=results_path,

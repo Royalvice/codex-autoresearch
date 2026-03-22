@@ -24,6 +24,7 @@ from autoresearch_artifacts import (
 )
 from autoresearch_core import (
     AUTORESEARCH_OWNED_BASENAMES,
+    ENV_ASSIGNMENT_RE,
     EXEC_SCRATCH_ROOT,
     HEADER,
     LESSONS_FILE_NAME,
@@ -37,6 +38,7 @@ from autoresearch_core import (
     AutoresearchError,
     LogRow,
     ParsedLog,
+    command_is_executable,
     decimal_to_json_number,
     format_decimal,
     format_delta,
@@ -73,6 +75,7 @@ from autoresearch_paths import (
 __all__ = [
     "AUTORESEARCH_OWNED_BASENAMES",
     "AutoresearchError",
+    "ENV_ASSIGNMENT_RE",
     "EXEC_SCRATCH_ROOT",
     "GitStatusEntry",
     "HEADER",
@@ -94,6 +97,7 @@ __all__ = [
     "canonical_repo_root",
     "cleanup_exec_state",
     "clone_state_payload",
+    "command_is_executable",
     "compare_summary_to_state",
     "decimal_to_json_number",
     "default_exec_state_path",

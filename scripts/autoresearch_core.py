@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import re
+import shlex
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -65,6 +68,7 @@ REQUIRED_STATE_FIELDS = {
     "pivot_count",
     "last_status",
 }
+ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
 
 
 class AutoresearchError(Exception):
@@ -150,3 +154,28 @@ def improvement(metric: Decimal, reference: Decimal, direction: str) -> bool:
     if direction == "higher":
         return metric > reference
     raise AutoresearchError(f"Unsupported direction: {direction}")
+
+
+def command_is_executable(command: str) -> bool:
+    if not command.strip():
+        return False
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+
+    executable = ""
+    for part in parts:
+        if ENV_ASSIGNMENT_RE.fullmatch(part):
+            continue
+        executable = part
+        break
+    if not executable:
+        return False
+
+    candidate = Path(executable)
+    if candidate.is_absolute() or "/" in executable or "\\" in executable:
+        return candidate.is_file() and os.access(candidate, os.X_OK)
+    return shutil.which(executable) is not None

@@ -105,13 +105,25 @@ write_sleeping_fake_codex() {
   cat > "$path" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${1:-}" != "exec" ]]; then
+  echo "expected codex exec" >&2
+  exit 64
+fi
+shift
 repo=""
+prompt_from_stdin=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -C) repo="$2"; shift 2 ;;
+    -) prompt_from_stdin=1; shift ;;
     *) shift ;;
   esac
 done
+if [[ "$prompt_from_stdin" -ne 1 ]]; then
+  echo "expected prompt from stdin" >&2
+  exit 65
+fi
+cat >/dev/null
 if [[ -n "$repo" ]]; then
   cd "$repo"
 fi

@@ -97,7 +97,7 @@ Before starting any interactive loop, ALWAYS:
 
 Never silently infer all fields and start iterating. A 30-second confirmation is always cheaper than wasted iterations.
 
-**Two-phase boundary:** All questions happen BEFORE launch. Once the user says "go", call `autoresearch_runtime_ctl.py launch` so the confirmed launch manifest and detached runtime are created in one script-level handoff. The long-running loop should continue through the runtime, not stay bound to the same foreground turn. After launch, NEVER pause to ask the user anything during the loop -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity mid-loop, apply best practices, log your reasoning in the commit message, and keep iterating. The user may be asleep.
+**Two-phase boundary:** All questions happen BEFORE launch. Once the user says "go", call `autoresearch_runtime_ctl.py launch` so the confirmed launch manifest and detached runtime are created in one script-level handoff. The long-running loop should continue through the runtime, not stay bound to the same foreground turn. Each runtime cycle should launch a non-interactive `codex exec` session, with the generated runtime prompt supplied on stdin. If that `codex exec` session cannot be launched, the runtime must transition to `needs_human` instead of silently falling back to an idle state. After launch, NEVER pause to ask the user anything during the loop -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity mid-loop, apply best practices, log your reasoning in the commit message, and keep iterating. The user may be asleep.
 
 Exec-mode exception:
 - Do not ask clarifying or launch questions.
@@ -407,7 +407,7 @@ Health Check runs strictly between Log (Phase 8) and Phase 8.7 (Re-Anchoring). T
 
 Run health checks per `references/health-check-protocol.md`:
 
-- **Every managed-runtime cycle boundary:** before each detached Codex session (and therefore before every relaunch), `autoresearch_runtime_ctl.py` runs `autoresearch_health_check.py` for disk space, git state, verify command existence, and resume-helper-based TSV/JSON integrity.
+- **Every managed-runtime cycle boundary:** before each detached `codex exec` session (and therefore before every relaunch), `autoresearch_runtime_ctl.py` runs `autoresearch_health_check.py` for disk space, git state, verify command existence, and resume-helper-based TSV/JSON integrity.
 - **Commit safety at the same boundary:** when the repo is git-backed, `autoresearch_runtime_ctl.py` also runs `autoresearch_commit_gate.py` with the launch-manifest scope before each detached session. Relaunch is blocked if staged autoresearch artifacts or out-of-scope worktree changes are present.
 - **Extended review:** scope integrity, environment drift, verify/guard consistency, and context health when the workflow explicitly schedules the protocol-level extended checks.
 - Log integrity should use the helper-script reconstruction of main rows and retained state, not raw TSV row counts.

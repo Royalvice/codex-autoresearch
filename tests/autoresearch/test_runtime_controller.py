@@ -379,6 +379,71 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             self.assertIn("Invalid JSON", stopped["error"])
             self.assertEqual(stopped["runtime_path"], str(runtime_path.resolve()))
 
+    def test_runtime_launch_blocks_when_codex_bin_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+
+            completed = self.run_script_completed(
+                "autoresearch_runtime_ctl.py",
+                "launch",
+                "--repo",
+                str(tmpdir),
+                "--original-goal",
+                "New goal",
+                "--mode",
+                "loop",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "python3 -c pass",
+                "--guard",
+                "python -m py_compile src",
+                "--codex-bin",
+                "definitely-not-a-real-codex-bin",
+            )
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("Codex executable is not available", completed.stderr)
+            self.assertFalse((tmpdir / "autoresearch-runtime.json").exists())
+
+    def test_runtime_run_marks_needs_human_when_codex_exec_is_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            self.create_launch_manifest(tmpdir)
+
+            completed = self.run_script_completed(
+                "autoresearch_runtime_ctl.py",
+                "run",
+                "--repo",
+                str(tmpdir),
+                "--codex-bin",
+                "definitely-not-a-real-codex-bin",
+                "--sleep-seconds",
+                "0",
+                "--max-stagnation",
+                "1",
+            )
+            self.assertNotEqual(completed.returncode, 0)
+            runtime = json.loads((tmpdir / "autoresearch-runtime.json").read_text(encoding="utf-8"))
+            self.assertEqual(runtime["status"], "needs_human")
+            self.assertEqual(runtime["terminal_reason"], "codex_exec_unavailable")
+            self.assertIn("Codex executable is not available", runtime["last_error"])
+
+            status = self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "status",
+                "--repo",
+                str(tmpdir),
+            )
+            self.assertEqual(status["status"], "needs_human")
+            self.assertEqual(status["reason"], "codex_exec_unavailable")
+            self.assertIn("Codex executable is not available", status["error"])
+
     def test_runtime_stop_appends_summary_lesson_when_state_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
@@ -574,6 +639,75 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             runtime = json.loads((tmpdir / "autoresearch-runtime.json").read_text(encoding="utf-8"))
             self.assertEqual(runtime["status"], "needs_human")
             self.assertEqual(runtime["terminal_reason"], "blocked")
+            self.assertTrue(results_path.exists())
+            self.assertTrue(state_path.exists())
+
+    def test_runtime_controller_uses_codex_exec_with_prompt_on_stdin(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            results_path = tmpdir / "research-results.tsv"
+            state_path = tmpdir / "autoresearch-state.json"
+            fake_codex_path = tmpdir / "fake-codex"
+            prompt_path = tmpdir / ".runtime-prompt.txt"
+
+            self.create_launch_manifest(
+                tmpdir,
+                original_goal="Reduce failures in this repo",
+                goal="Reduce failures",
+            )
+            self.write_fake_codex(
+                fake_codex_path,
+                body_lines=[
+                    'if [[ "${1:-}" != "exec" ]]; then',
+                    '  echo "expected codex exec" >&2',
+                    "  exit 64",
+                    "fi",
+                    "shift",
+                    'repo=""',
+                    "prompt_from_stdin=0",
+                    f'prompt_path="{prompt_path}"',
+                    'while [[ $# -gt 0 ]]; do',
+                    '  case "$1" in',
+                    '    -C) repo="$2"; shift 2 ;;',
+                    '    -) prompt_from_stdin=1; shift ;;',
+                    '    *) shift ;;',
+                    '  esac',
+                    'done',
+                    'if [[ "$prompt_from_stdin" -ne 1 ]]; then',
+                    '  echo "expected prompt from stdin" >&2',
+                    "  exit 65",
+                    "fi",
+                    'cat >"$prompt_path"',
+                    'if [[ -n "$repo" ]]; then cd "$repo"; fi',
+                    f'python_bin="{sys.executable}"',
+                    f'init_script="{SCRIPTS_DIR / "autoresearch_init_run.py"}"',
+                    f'record_script="{SCRIPTS_DIR / "autoresearch_record_iteration.py"}"',
+                    'if [[ ! -f "research-results.tsv" ]]; then',
+                    '  "$python_bin" "$init_script" --results-path research-results.tsv --state-path autoresearch-state.json --mode loop --goal "Reduce failures" --scope "src/**/*.py" --metric-name "failure count" --direction lower --verify "pytest -q" --baseline-metric 10 --baseline-commit a1b2c3d --baseline-description "baseline failures"',
+                    "fi",
+                    '  "$python_bin" "$record_script" --results-path research-results.tsv --state-path autoresearch-state.json --status blocked --description "validation complete"',
+                ],
+            )
+
+            started = self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "start",
+                "--repo",
+                str(tmpdir),
+                "--codex-bin",
+                str(fake_codex_path),
+                "--sleep-seconds",
+                "0",
+                "--max-stagnation",
+                "2",
+            )
+            self.assertEqual(started["status"], "running")
+
+            status = self.wait_for_runtime_status(tmpdir, {"needs_human"})
+            self.assertEqual(status["reason"], "blocked")
+            prompt_text = prompt_path.read_text(encoding="utf-8")
+            self.assertIn("$codex-autoresearch", prompt_text)
+            self.assertIn("Reduce failures in this repo", prompt_text)
             self.assertTrue(results_path.exists())
             self.assertTrue(state_path.exists())
 

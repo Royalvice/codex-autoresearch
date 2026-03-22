@@ -517,6 +517,7 @@ De cara al usuario humano, ahora solo hay un punto de entrada principal: **`$cod
 
 - En la primera ejecucion interactiva, describe el objetivo de forma natural, responde las preguntas de confirmacion y luego contesta `go`
 - Despues de `go`, Codex escribe `autoresearch-launch.json` y arranca automaticamente el controlador de ejecucion desacoplado
+- Cada ciclo gestionado posterior lanza una sesion no interactiva de `codex exec` y pasa el prompt del runtime por stdin
 - Las solicitudes posteriores de `status`, `stop` o `resume` siguen pasando por el mismo `$codex-autoresearch`
 - `Mode: exec` sigue siendo la via avanzada para CI o automatizacion totalmente especificada
 

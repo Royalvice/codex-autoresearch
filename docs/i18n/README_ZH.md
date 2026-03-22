@@ -517,6 +517,7 @@ iteration  commit   metric  delta   status    description
 
 - 首次交互运行：自然描述目标，回答确认问题，然后回复 `go`
 - 回复 `go` 后，Codex 会自动写入 `autoresearch-launch.json` 并启动分离的运行控制器
+- 之后每个托管循环都会启动一个非交互式 `codex exec` 会话，并通过 stdin 传入 runtime prompt
 - 之后如果想看状态、停止、恢复，仍然通过 `$codex-autoresearch` 这个 skill 来做
 - `Mode: exec` 仍然保留给 CI / 高级自动化
 

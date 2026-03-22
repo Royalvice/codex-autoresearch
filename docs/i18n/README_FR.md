@@ -518,6 +518,7 @@ Pour les utilisateurs humains, il n'y a maintenant plus qu'un seul point d'entre
 
 - Lors du premier lancement interactif, decrivez naturellement l'objectif, repondez aux questions de confirmation, puis repondez `go`
 - Apres `go`, Codex ecrit `autoresearch-launch.json` et demarre automatiquement le controleur d'execution detache
+- Chaque cycle gere ensuite une session `codex exec` non interactive, avec le prompt runtime transmis via stdin
 - Les demandes ulterieures comme `status`, `stop` ou `resume` passent toujours par le meme `$codex-autoresearch`
 - `Mode: exec` reste la voie avancee pour le CI ou l'automatisation entierement specifiee
 

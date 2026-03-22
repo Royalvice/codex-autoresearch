@@ -551,7 +551,9 @@ The public human workflow now stays on a single entrypoint: `$codex-autoresearch
 2. Answer the confirmation questions.
 3. Reply `go`.
 4. Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically.
-5. Before each detached session or relaunch, the runtime controller runs `autoresearch_health_check.py` and `autoresearch_commit_gate.py` so integrity and scope safety are enforced at the control-plane boundary.
+5. Each detached runtime cycle launches a non-interactive `codex exec` session with the runtime prompt supplied on stdin.
+6. Before each detached session or relaunch, the runtime controller runs `autoresearch_health_check.py` and `autoresearch_commit_gate.py` so integrity and scope safety are enforced at the control-plane boundary.
+7. If `codex exec` itself cannot be launched, the runtime moves to `needs_human` instead of silently looking idle.
 
 After that, the run continues through fresh Codex sessions in the background until a terminal condition, blocker, or explicit stop request.
 
