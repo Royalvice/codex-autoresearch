@@ -173,7 +173,7 @@ BUCLE COMPARTIDO (para siempre o N veces):
   7. Registrar el resultado
   8. Health check (disco, git, salud de verificacion)
   9. Si 3+ descartes -> REFINE; 5+ -> PIVOT; 2 PIVOTs -> busqueda web
-  10. Repetir. Nunca parar. Nunca preguntar.
+  10. Repetir hasta alcanzar la condicion de parada, una detencion manual, `needs_human` o el limite de iteraciones configurado.
 ```
 
 ---

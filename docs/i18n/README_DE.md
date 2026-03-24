@@ -101,92 +101,76 @@ Karpathys autoresearch hat bewiesen, dass eine einfache Schleife -- aendern, ver
 
 ## Architektur
 
+Die folgende Grafik zeigt zuerst den interaktiven Startfluss und danach den gemeinsamen Schleifenkern. Bevor die Schleife beginnt, sondiert Codex die Umgebung, prueft, ob eine wiederaufnehmbare Sitzung existiert, bestaetigt die Konfiguration und verlangt eine explizite Wahl zwischen `foreground` und `background`.
+
 ```
-              +---------------------+
-              | Umgebungserkennung  |  <-- Phase 0: CPU/GPU/RAM/Toolchains erkennen
-              +---------+-----------+
-                        |
-              +---------v-----------+
-              | Sitzung fortsetzen? |  <-- auf fruehere Laufartefakte pruefen
-              +---------+-----------+
-                        |
-              +---------v-----------+
-              |   Kontext lesen     |  <-- Scope + Erkenntnisdatei lesen
-              +---------+-----------+
-                        |
-              +---------v-----------+
-              |Ausgangswert festlegen| <-- iteration #0
-              +---------+-----------+
-                        |
-         +--------------v--------------+
-         |                             |
-         |  +----------------------+   |
-         |  | Hypothese waehlen    |   |  <-- Erkenntnisse + Perspektiven heranziehen
-         |  | (oder N parallel)    |   |      nach Umgebung filtern
-         |  +---------+------------+   |
-         |            |                |
-         |  +---------v------------+   |
-         |  |EINE Aenderung vornehmen| |
-         |  +---------+------------+   |
-         |            |                |
-         |  +---------v------------+   |
-         |  | git commit           |   |
-         |  +---------+------------+   |
-         |            |                |
-         |  +---------v------------+   |
-         |  | Run Verify + Guard   |   |
-         |  +---------+------------+   |
-         |            |                |
-         |        verbessert?          |
-         |       /         \           |
-         |     yes          no         |
-         |     /              \        |
-         |  +-v------+   +----v-----+ |
-         |  |  KEEP  |   | REVERT   | |
-         |  |+lesson |   +----+-----+ |
-         |  +--+-----+        |       |
-         |      \            /         |
-         |   +--v----------v---+      |
-         |   |Ergebnis protokollieren| |
-         |   +--------+--------+      |
-         |            |               |
-         |   +--------v--------+      |
-         |   |  Health Check   |      |  <-- Speicher, git, Verifikationsgesundheit
-         |   +--------+--------+      |
-         |            |               |
-         |     3+ Verwerfungen?       |
-         |    /             \         |
-         |  no              yes       |
-         |  |          +----v-----+   |
-         |  |          | REFINE / |   |  <-- Pivot-Protokoll-Eskalation
-         |  |          | PIVOT    |   |
-         |  |          +----+-----+   |
-         |  |               |         |
-         +--+------+--------+         |
-         |         (wiederholen)      |
-         +----------------------------+
+              +----------------------+
+              | Umgebungserkennung   |  <-- CPU/GPU/RAM/Toolchains erkennen
+              +----------+-----------+
+                         |
+              +----------v-----------+
+              | Sitzung fortsetzen?  |  <-- bestehende Ergebnisse/Zustaende pruefen
+              +----------+-----------+
+                         |
+              +----------v-----------+
+              | Kontext lesen        |  <-- Scope + Erkenntnisse + Repo-Zustand
+              +----------+-----------+
+                         |
+              +----------v-----------+
+              | Wizard bestaetigen   |  <-- Ziel/Metrik/Verify/Guard
+              | + Ausfuehrungsmodus  |      + foreground oder background
+              +----------+-----------+
+                         |
+               +---------+---------+
+               |                   |
+     +---------v--------+  +-------v---------+
+     | Foreground-Lauf  |  | Background-Lauf |
+     | aktuelle Sitzung |  | Launch-Manifest |
+     | ohne Runtime-    |  | + detached ctl  |
+     | Dateien          |  |                 |
+     +---------+--------+  +-------+---------+
+               |                   |
+               +---------+---------+
+                         |
+              +----------v-----------+
+              | Gemeinsamer          |
+              | Schleifenkern        |
+              | baseline -> change   |
+              | -> verify/guard ->   |
+              | keep/discard/log     |
+              +----------+-----------+
+                         |
+              +----------v-----------+
+              | Supervisor-Ergebnis  |  <-- continue / stop / needs_human
+              +----------------------+
 ```
 
-Die Schleife laeuft bis zur Unterbrechung (unbegrenzt) oder fuer genau N Iterationen (begrenzt durch `Iterations: N`).
+Foreground und background teilen sich dasselbe Experimentprotokoll. Der einzige Unterschied ist, wo die Schleife ausgefuehrt wird: in der aktuellen Codex-Sitzung fuer foreground oder im detached runtime controller fuer background. Beide laufen bis zur Unterbrechung (unbegrenzt) oder fuer genau N Iterationen (begrenzt durch `Iterations: N`).
 
 **Pseudocode:**
 
 ```
 PHASE 0: Umgebung pruefen, auf Sitzungswiederaufnahme pruefen
 PHASE 1: Kontext + Erkenntnisdatei einlesen
+PHASE 2: Konfiguration bestaetigen + foreground oder background waehlen
 
-LOOP (endlos oder N-mal):
+IF foreground:
+  die Schleife in der aktuellen Codex-Sitzung ausfuehren
+ELSE background:
+  autoresearch-launch.json schreiben und den detached runtime starten
+
+GEMEINSAME SCHLEIFE (endlos oder N-mal):
   1. Aktuellen Zustand + git-Historie + Ergebnisprotokoll + Erkenntnisse ueberpruefen
   2. EINE Hypothese waehlen (Perspektiven anwenden, nach Umgebung filtern)
      -- oder N Hypothesen im parallelen Modus
   3. EINE atomare Aenderung durchfuehren
   4. git commit (vor der Verifikation)
   5. Mechanische Verifikation + Guard ausfuehren
-  6. Verbessert -> behalten (Erkenntnis extrahieren). Verschlechtert -> git reset. Abgestuerzt -> reparieren oder ueberspringen.
+  6. Verbessert -> behalten (Erkenntnis extrahieren). Verschlechtert -> genehmigte Rollback-Strategie. Abgestuerzt -> reparieren oder ueberspringen.
   7. Ergebnis protokollieren
   8. Health Check (Speicherplatz, git, Verifikationsgesundheit)
   9. Bei 3+ Verwerfungen -> REFINE; 5+ -> PIVOT; 2 PIVOTs -> Websuche
-  10. Wiederholen. Nie anhalten. Nie fragen.
+  10. Wiederholen, bis die Stop-Bedingung, ein manueller Stopp, needs_human oder das konfigurierte Iterationslimit erreicht ist.
 ```
 
 ---

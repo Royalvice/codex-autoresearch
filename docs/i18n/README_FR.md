@@ -173,7 +173,7 @@ BOUCLE PARTAGEE (infini ou N fois) :
   7. Journaliser le resultat
   8. Controle de sante (disque, git, sante de la verification)
   9. 3+ rejets consecutifs -> REFINE ; 5+ -> PIVOT ; 2 PIVOTs -> recherche web
-  10. Repeter. Ne jamais s'arreter. Ne jamais demander.
+  10. Repeter jusqu'a la condition d'arret, un arret manuel, `needs_human` ou la limite d'iterations configuree.
 ```
 
 ---

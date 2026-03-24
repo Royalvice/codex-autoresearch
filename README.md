@@ -170,7 +170,7 @@ SHARED LOOP (forever or N times):
   7. Log the result
   8. Health check (disk, git, verify health)
   9. If 3+ discards -> REFINE; 5+ -> PIVOT; 2 PIVOTs -> web search
-  10. Repeat. Never stop. Never ask.
+  10. Repeat until the stop condition, manual stop, needs_human, or the configured iteration cap.
 ```
 
 ---

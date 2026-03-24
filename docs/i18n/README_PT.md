@@ -173,7 +173,7 @@ LOOP COMPARTILHADO (para sempre ou N vezes):
   7. Registrar o resultado
   8. Health check (disco, git, saude da verificacao)
   9. Se 3+ descartes -> REFINE; 5+ -> PIVOT; 2 PIVOTs -> busca web
-  10. Repetir. Nunca parar. Nunca perguntar.
+  10. Repetir ate a condicao de parada, uma parada manual, `needs_human` ou o limite de iteracoes configurado.
 ```
 
 ---
