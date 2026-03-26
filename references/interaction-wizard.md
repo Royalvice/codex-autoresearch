@@ -22,6 +22,7 @@ When this file mentions `<skill-root>`, it means the directory containing the lo
 8. The mandatory confirmation round must never collapse into a bare "foreground/background + go" prompt. Even if the only unresolved choice is run mode, first show a short repo-grounded summary of the confirmed goal, metric, verify path, and next step.
 9. The user should never see raw field names (Goal, Scope, Metric, Direction, Verify, Guard). Translate everything into natural conversation.
 10. After the user approves the summary, follow the chosen run mode directly from the same skill entrypoint. Foreground stays in the current session; background persists the confirmed launch manifest and starts the runtime controller. Do not tell the user to switch to a different wrapper command.
+11. End the confirmation summary with a short runtime checklist that reinforces execution order: baseline first, then initialize artifacts, and always log a completed experiment before starting the next one.
 
 ## Clarification Protocol
 
@@ -69,6 +70,11 @@ Before launching, present a structured confirmation summary. The user should be 
 - Run until all gone, or cap at N iterations?
 - Any other safety checks beyond tsc?
 
+**Runtime checklist**
+- Baseline first, then initialize results/state.
+- Log every completed experiment before the next one starts.
+- Use helper scripts for authoritative row/state updates.
+
 **Next step**
 - Choose foreground or background, then reply "go" to start, or tell me what to change.
 ```
@@ -88,6 +94,11 @@ Before launching, present a structured confirmation summary. The user should be 
 - 跑到全部消除，还是限制在 N 次迭代？
 - 除了 tsc 还有其他安全检查吗？
 
+**运行时清单**
+- 先做 baseline，再初始化结果/状态文件。
+- 每完成一次实验，必须先落表，再开始下一次。
+- 结果行和状态更新都交给 helper 脚本。
+
 **下一步**
 - 先选择 foreground 或 background，再回复 "go" 启动，或告诉我要改什么。
 ```
@@ -101,6 +112,7 @@ Before launching, present a structured confirmation summary. The user should be 
 5. End with a clear call to action.
 6. If run mode is still undecided, list it under "Need to confirm" and then ask the user to choose foreground or background. Do not omit the summary just because run mode is the only remaining blocker.
 7. Only show "Required keep labels" and/or "Required stop labels" when the goal truly has structural success requirements beyond the numeric target.
+8. Keep the runtime checklist short. It exists to reinforce execution order, not to restate the whole protocol.
 
 The user replies "go", "start", "launch", or corrects something. No field names, no YAML, no structured input required.
 
@@ -112,8 +124,10 @@ When the user replies with launch approval (`go`, `start`, `launch`, or an equiv
 2. If the user chose **foreground**, keep the loop in the current Codex session:
    - initialize `research-results.tsv` and `autoresearch-state.json`
    - do not create `autoresearch-launch.json`, `autoresearch-runtime.json`, or `autoresearch-runtime.log`
+   - keep the runtime checklist active: baseline first, then log every completed experiment before the next one starts
    - report that the foreground run has started in the current session
 3. If the user chose **background**, persist the confirmed config to `autoresearch-launch.json`, start the detached runtime controller, and report where the runtime/log artifacts live.
+   - the nested background session must receive the same runtime checklist, especially the "log before the next experiment" rule
 4. Do not ask the user to rerun a shell wrapper command just to continue overnight.
 
 If the chosen path is **Fresh start** after recovery analysis, the handoff should be:

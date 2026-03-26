@@ -589,7 +589,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # 汎用原則
-    autonomous-loop-protocol.md     # ループプロトコル仕様
+    runtime-hard-invariants.md      # 簡潔な実行チェックリスト
+    loop-workflow.md                # 軽量な loop 実行ガイド
+    autonomous-loop-protocol.md     # 詳細なループ参照
     plan-workflow.md                # plan モード仕様
     debug-workflow.md               # debug モード仕様
     fix-workflow.md                 # fix モード仕様

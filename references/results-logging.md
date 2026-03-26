@@ -1,6 +1,6 @@
 # Results Logging
 
-Use a plain TSV log so the agent can learn from prior iterations.
+This is the detailed reference for TSV/state semantics. During normal loop execution, treat `autoresearch_record_iteration.py` or `autoresearch_select_parallel_batch.py` as the authoritative closeout step instead of reopening this file.
 
 ## Generic Log File
 
@@ -147,6 +147,8 @@ In exec mode, the helper scripts keep JSON state in scratch storage by default i
 ## Rules
 
 - Create the log only after the baseline metric is known.
+- Record every completed experiment before starting the next one.
+- In normal loop execution, do that closeout through the bundled helper scripts rather than by hand.
 - Append after every iteration, including crashes, no-ops, refines, pivots, and searches.
 - Never commit the log.
 - Treat the log, JSON state, and lessons file as autoresearch-owned artifacts: leave them unstaged and ignore them when checking experiment scope.

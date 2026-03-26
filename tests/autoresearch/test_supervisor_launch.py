@@ -896,6 +896,9 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             self.assertIn("Session mode: background", prompt)
             self.assertIn("Do not run the interactive wizard again.", prompt)
             self.assertIn("Stop condition: stop when metric reaches 0", prompt)
+            self.assertIn("Runtime checklist:", prompt)
+            self.assertIn("Record every completed experiment before starting the next one.", prompt)
+            self.assertIn("Use helper scripts for authoritative TSV/state updates.", prompt)
 
             status = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -1104,6 +1107,8 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             )
             self.assertIn(f"Results path: {results_path.resolve()}", normalized)
             self.assertIn(f"State path: {state_path.resolve()}", normalized)
+            self.assertIn("Runtime checklist:", normalized)
+            self.assertIn("Record every completed experiment before starting the next one.", normalized)
 
     def test_create_launch_manifest_persists_managed_repo_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

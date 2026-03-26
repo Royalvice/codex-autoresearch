@@ -75,6 +75,10 @@ Codex: I found 47 `any` occurrences across src/**/*.ts.
        - Run mode: foreground or background?
        - Run until all gone, or cap at N iterations?
 
+       Runtime checklist:
+       - baseline first, then initialize results/state
+       - record every completed experiment before the next one starts
+
        Choose a run mode, then reply "go" to start, or tell me what to change.
 
        For truly unattended runs, launch Codex with approvals / sandbox settings
@@ -147,6 +151,12 @@ Karpathy's autoresearch proved that a simple loop -- modify, verify, keep or dis
 
 Foreground and background share the same experiment protocol. The difference is only where the loop executes: the current Codex session for foreground, or the detached runtime controller for background. Both run until interrupted (unbounded) or for exactly N iterations (bounded via `Iterations: N`).
 
+The runtime checklist stays intentionally small in both modes:
+
+- baseline before init
+- record every completed experiment before the next one starts
+- use helper scripts for authoritative state and log updates
+
 **In pseudocode:**
 
 ```
@@ -212,6 +222,7 @@ Codex infers everything from your sentence and your repo. You never write config
 Before starting, Codex always shows you what it found and asks you to confirm.
 One round of confirmation minimum, up to five if needed. Then you choose foreground or background and say "go". Foreground keeps iterating in the current session; background hands off to detached runtime so you can walk away.
 For truly unattended runs, start Codex CLI with approvals / sandbox settings that will not interrupt git commit or revert commands. In a disposable or otherwise trusted repo, giving Codex fuller permissions is the simplest option.
+After launch, the most important execution rule is simple: every completed experiment must be recorded before the next one begins.
 
 If your goal has a structural requirement in addition to a metric threshold, Codex can also gate both retention and stopping on structured labels. For example: "only retain results that use the `production-path`, and stop only when latency <= 120 ms and the retained keep is labeled `production-path` and `real-backend`." This avoids both falsely retaining and falsely stopping on a numerically better result that came from the wrong mechanism, subsystem, or implementation path.
 
@@ -607,7 +618,9 @@ codex-autoresearch/
       results/                      # results/state/exec/parallel coverage
   references/
     core-principles.md              # universal principles
-    autonomous-loop-protocol.md     # loop protocol specification
+    runtime-hard-invariants.md      # short execution checklist
+    loop-workflow.md                # thin loop runtime guide
+    autonomous-loop-protocol.md     # detailed loop reference
     plan-workflow.md                # plan mode spec
     debug-workflow.md               # debug mode spec
     fix-workflow.md                 # fix mode spec

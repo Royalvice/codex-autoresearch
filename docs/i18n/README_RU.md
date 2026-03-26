@@ -589,7 +589,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # общие принципы
-    autonomous-loop-protocol.md     # спецификация протокола цикла
+    runtime-hard-invariants.md      # компактный чеклист выполнения
+    loop-workflow.md                # облегченный рабочий цикл loop
+    autonomous-loop-protocol.md     # подробная справка по циклу
     plan-workflow.md                # спецификация режима plan
     debug-workflow.md               # спецификация режима debug
     fix-workflow.md                 # спецификация режима fix

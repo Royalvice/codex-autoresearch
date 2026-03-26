@@ -1,6 +1,8 @@
 # Autonomous Loop Protocol
 
-This is the detailed protocol for the generic Codex research loop.
+This is the detailed reference for the generic Codex research loop.
+
+During active execution, keep `runtime-hard-invariants.md` plus the selected mode workflow in memory first. Use this file when you need the full setup, recovery, artifact, or escalation details behind the loop.
 
 ## Loop Modes
 

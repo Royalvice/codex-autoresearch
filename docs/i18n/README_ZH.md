@@ -587,7 +587,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # 一次性 Codex CLI 冒烟 harness
   references/
     core-principles.md              # 通用原则
-    autonomous-loop-protocol.md     # 循环协议规范
+    runtime-hard-invariants.md      # 精简运行时清单
+    loop-workflow.md                # 轻量 loop 运行指南
+    autonomous-loop-protocol.md     # 详细循环参考
     plan-workflow.md                # plan 模式规范
     debug-workflow.md               # debug 模式规范
     fix-workflow.md                 # fix 模式规范

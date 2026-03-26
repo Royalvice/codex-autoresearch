@@ -69,6 +69,12 @@ The only things that stop the loop:
 
 This boundary is absolute at the skill level. Everything before "go" can ask. Everything after "go" is silent.
 
+Once execution begins, keep the runtime contract tiny:
+
+- baseline before init
+- record every completed experiment before the next one starts
+- use helper scripts for authoritative log/state updates
+
 ---
 
 ## The Iteration Cycle
@@ -100,7 +106,7 @@ Every iterating mode (loop, debug, fix, security, ship) shares the same cycle:
 4. **Verify** -- run the verify command, extract the metric value
 5. **Guard** -- if set, run the guard command to check for regressions
 6. **Decide** -- metric improved and guard passed = keep; otherwise revert
-7. **Log** -- append result to `research-results.tsv`
+7. **Log** -- record the result before starting the next experiment
 
 Revert uses the rollback strategy approved during setup. In a dedicated experiment branch/worktree with pre-launch approval, it may use `git reset --hard HEAD~1`; otherwise it uses `git revert --no-edit HEAD`.
 
@@ -217,6 +223,7 @@ Codex: Starting background run -- baseline: 47. Detached runtime is now iteratin
 ```
 
 Reference: `references/autonomous-loop-protocol.md`
+Thin runtime guide: `references/loop-workflow.md`
 
 ### plan
 

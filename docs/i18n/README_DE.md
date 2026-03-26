@@ -589,7 +589,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # universelle Prinzipien
-    autonomous-loop-protocol.md     # Schleifen-Protokollspezifikation
+    runtime-hard-invariants.md      # kompakte Laufzeit-Checkliste
+    loop-workflow.md                # schlanker Laufzeit-Workflow fuer loop
+    autonomous-loop-protocol.md     # detaillierte Schleifenreferenz
     plan-workflow.md                # Spezifikation Modus plan
     debug-workflow.md               # Spezifikation Modus debug
     fix-workflow.md                 # Spezifikation Modus fix

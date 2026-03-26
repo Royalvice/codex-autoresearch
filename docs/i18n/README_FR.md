@@ -591,7 +591,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # principes universels
-    autonomous-loop-protocol.md     # specification du protocole de boucle
+    runtime-hard-invariants.md      # checklist d'execution compacte
+    loop-workflow.md                # guide d'execution leger pour loop
+    autonomous-loop-protocol.md     # reference detaillee de la boucle
     plan-workflow.md                # specification du mode plan
     debug-workflow.md               # specification du mode debug
     fix-workflow.md                 # specification du mode fix

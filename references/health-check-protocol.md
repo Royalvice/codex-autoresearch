@@ -97,7 +97,7 @@ Thresholds:
 
 ## Integration Points
 
-- **autonomous-loop-protocol.md:** Runs as Phase 8.5 between Log and Phase 8.7 (Re-Anchoring). Context health feeds into the Protocol Fingerprint Check in Phase 8.7.
+- **autonomous-loop-protocol.md:** Runs as the detailed reference for Phase 8.5 (Health Check) and Phase 8.7 (Re-Anchoring). Context health feeds into the Protocol Fingerprint Check defined in `runtime-hard-invariants.md`.
 - **environment-awareness.md:** Initial probes establish baselines for drift detection.
 - **parallel-experiments-protocol.md:** `autoresearch_select_parallel_batch.py` reuses the lightweight health/worktree preflight before it accepts a completed parallel batch into the authoritative run state.
 - **multi-repo runs:** the helper remains anchored in the primary repo for results/state/log integrity, but companion repos participate in worktree-scope checks through the launch-manifest repo list.

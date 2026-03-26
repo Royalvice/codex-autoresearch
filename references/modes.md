@@ -6,7 +6,7 @@ Official Codex activation is `$codex-autoresearch` with `Mode: <name>`, or impli
 
 | Mode | Invocation | Reference | Core Output |
 |------|------------|-----------|-------------|
-| `loop` | `Mode: loop` | `autonomous-loop-protocol.md` | iterative metric-driven improvement |
+| `loop` | `Mode: loop` | `loop-workflow.md` | iterative metric-driven improvement |
 | `plan` | `Mode: plan` | `plan-workflow.md` | launch-ready config |
 | `debug` | `Mode: debug` | `debug-workflow.md` | findings, eliminated hypotheses, next actions |
 | `fix` | `Mode: fix` | `fix-workflow.md` | reduced error count, blocked items, fix log |
@@ -20,11 +20,10 @@ All specialized modes must:
 
 1. load `core-principles.md`,
 2. follow `structured-output-spec.md`,
-3. use `interaction-wizard.md` for every new interactive launch (except `exec` mode),
-4. load `autonomous-loop-protocol.md` for all iterating modes (loop, debug, fix, security, ship, exec),
-5. load `lessons-protocol.md` for cross-run learning (iterating modes; exec mode reads lessons but never writes them),
-6. load `pivot-protocol.md` for stuck recovery (iterating modes, including ship prepare loops),
-7. load `health-check-protocol.md` for self-monitoring (iterating modes),
-8. keep all decisions mechanical where possible,
-9. write their documented logs and output files (for iterating modes this includes `research-results.tsv`, `autoresearch-lessons.md`, and `autoresearch-state.json` -- none committed to git; exec mode persists only the TSV and the exec workflow cleans up any scratch JSON state before exit),
-10. preserve the official skill entrypoint in `SKILL.md`.
+3. load `runtime-hard-invariants.md` for active execution,
+4. use `interaction-wizard.md` for every new interactive launch (except `exec` mode),
+5. load the selected mode workflow reference,
+6. load detailed references such as `autonomous-loop-protocol.md`, `results-logging.md`, `lessons-protocol.md`, `pivot-protocol.md`, `health-check-protocol.md`, `parallel-experiments-protocol.md`, and `web-search-protocol.md` only when their behavior is actually needed,
+7. keep all decisions mechanical where possible,
+8. write their documented logs and output files (for foreground iterating modes this means `research-results.tsv` and `autoresearch-state.json` as the core persistent artifacts; lessons remain helper-derived secondary output, and exec persists only the TSV while cleaning up scratch JSON state before exit),
+9. preserve the official skill entrypoint in `SKILL.md`.
