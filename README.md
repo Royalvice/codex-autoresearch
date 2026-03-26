@@ -75,6 +75,10 @@ Codex: I found 47 `any` occurrences across src/**/*.ts.
        - Run mode: foreground or background?
        - Run until all gone, or cap at N iterations?
 
+       Runtime checklist:
+       - baseline first, then initialize results/state
+       - record every completed experiment before the next one starts
+
        Choose a run mode, then reply "go" to start, or tell me what to change.
 
        For truly unattended runs, launch Codex with approvals / sandbox settings
@@ -145,7 +149,13 @@ Karpathy's autoresearch proved that a simple loop -- modify, verify, keep or dis
               +----------------------+
 ```
 
-Foreground and background share the same experiment protocol. The difference is only where the loop executes: the current Codex session for foreground, or the detached runtime controller for background. Both run until interrupted (unbounded) or for exactly N iterations (bounded via `Iterations: N`).
+Foreground and background share the same experiment protocol. The difference is only where the loop executes: the current Codex session for foreground, or the detached runtime controller for background. Unbounded runs continue until you interrupt them or another terminal condition is reached (goal/stop condition satisfied, soft-blocker handoff, or hard blocker). Bounded runs follow the same terminal conditions, but also stop at `Iterations: N`.
+
+The runtime checklist stays intentionally small in both modes:
+
+- baseline before init
+- record every completed experiment before the next one starts
+- use helper scripts for authoritative state and log updates
 
 **In pseudocode:**
 
@@ -212,15 +222,18 @@ Codex infers everything from your sentence and your repo. You never write config
 Before starting, Codex always shows you what it found and asks you to confirm.
 One round of confirmation minimum, up to five if needed. Then you choose foreground or background and say "go". Foreground keeps iterating in the current session; background hands off to detached runtime so you can walk away.
 For truly unattended runs, start Codex CLI with approvals / sandbox settings that will not interrupt git commit or revert commands. In a disposable or otherwise trusted repo, giving Codex fuller permissions is the simplest option.
+After launch, the most important execution rule is simple: every completed experiment must be recorded before the next one begins.
 
-If your goal has a structural requirement in addition to a metric threshold, Codex can also gate stopping on structured labels. For example: "stop only when latency <= 120 ms and the retained keep is labeled `production-path` and `real-backend`." This avoids falsely stopping on a numerically better result that came from the wrong mechanism, subsystem, or implementation path.
+If your goal has a structural requirement in addition to a metric threshold, Codex can also gate both retention and stopping on structured labels. For example: "only retain results that use the `production-path`, and stop only when latency <= 120 ms and the retained keep is labeled `production-path` and `real-backend`." This avoids both falsely retaining and falsely stopping on a numerically better result that came from the wrong mechanism, subsystem, or implementation path.
 
 ### Dual-gate verification
 
-Two commands serve different purposes:
+Two commands and two optional label gates serve different purposes:
 
 - **Verify** = "Did the target metric improve?" (measures progress)
 - **Guard** = "Did anything else break?" (prevents regressions)
+- **Required keep labels** = "May this improvement enter retained state at all?"
+- **Required stop labels** = "May this retained result satisfy the stop condition?"
 
 ```text
 Verify: pytest --cov=src --cov-report=term 2>&1 | grep TOTAL | awk '{print $NF}'   # did coverage go up?
@@ -390,7 +403,7 @@ Every iterating run except `exec` extracts structured lessons -- what worked, wh
 - Positive lessons after every kept iteration
 - Strategic lessons after every PIVOT decision
 - Summary lessons at run completion
-- Capacity: 50 entries max, older entries summarized with time decay
+- Capacity target: keep the historical archive at roughly 50 entries while preserving current-run lessons verbatim; older history is summarized with time decay
 
 See `references/lessons-protocol.md` for details.
 
@@ -405,7 +418,7 @@ Instead of blindly retrying after failures, the loop uses a graduated escalation
 | 3 consecutive discards | **REFINE** -- adjust within current strategy |
 | 5 consecutive discards | **PIVOT** -- abandon strategy, try fundamentally different approach |
 | 2 PIVOTs without improvement | **Web search** -- look for external solutions |
-| 3 PIVOTs without improvement | **Soft blocker** -- warn and continue with bolder changes |
+| 3 PIVOTs without improvement | **Soft blocker** -- stop the current run and report that human input, broader scope, or a better metric is needed |
 
 A single successful keep resets all counters. See `references/pivot-protocol.md`.
 
@@ -467,7 +480,7 @@ Exit codes: 0 = improved, 1 = no improvement, 2 = hard blocker.
 
 Before using `codex exec` in CI, configure Codex CLI authentication in advance. In controlled automation environments, prefer `codex exec --dangerously-bypass-approvals-and-sandbox ...` so standalone exec runs match the managed runtime's default `danger_full_access` policy. For programmatic runs, API key authentication is the preferred option.
 
-When the bundled helper scripts drive `Mode: exec`, let `autoresearch_init_run.py --mode exec ...` archive prior repo-root artifacts automatically. With the default filenames it rotates `research-results.tsv` to `research-results.prev.tsv` and `autoresearch-state.json` to `autoresearch-state.prev.json`; do not hand-rename those files first.
+When the bundled helper scripts drive `Mode: exec`, let `autoresearch_init_run.py --mode exec ...` archive prior repo-root artifacts automatically. With the default filenames it rotates `research-results.tsv` to `research-results.prev.tsv` and `autoresearch-state.json` to `autoresearch-state.prev.json`; do not hand-rename those files first. Also keep `autoresearch_exec_state.py --cleanup` as the final serial helper step, after the last `autoresearch_record_iteration.py` / `autoresearch_select_parallel_batch.py` call.
 
 See `references/exec-workflow.md`.
 
@@ -483,7 +496,7 @@ Every iteration is recorded in complementary artifacts:
 - **`autoresearch-runtime.json`** -- background runtime control state (PID, status, last decision)
 - **`autoresearch-runtime.log`** -- background runtime log for long runs
 
-In `exec` mode, the state snapshot is scratch-only under `/tmp/codex-autoresearch-exec/...`. The exec workflow is responsible for removing that scratch JSON before exit, typically via `autoresearch_exec_state.py --cleanup`. The default helper flow also archives prior repo-root `research-results.tsv` and `autoresearch-state.json` to `research-results.prev.tsv` and `autoresearch-state.prev.json` automatically before the new exec run starts.
+In `exec` mode, the state snapshot is scratch-only under `/tmp/codex-autoresearch-exec/...`. The exec workflow is responsible for removing that scratch JSON before exit, typically via `autoresearch_exec_state.py --cleanup`. Run that cleanup only after the final stateful helper call has finished. The default helper flow also archives prior repo-root `research-results.tsv` and `autoresearch-state.json` to `research-results.prev.tsv` and `autoresearch-state.prev.json` automatically before the new exec run starts.
 
 ```
 iteration  commit   metric  delta   status    description
@@ -496,6 +509,8 @@ iteration  commit   metric  delta   status    description
 These files stay uncommitted and are treated as autoresearch-owned artifacts, not normal experiment diffs. On session resume, the JSON state is cross-validated against a reconstructed TSV main-iteration summary instead of raw row counts. Progress summaries print every 5 iterations. Bounded runs print a final baseline-to-best summary.
 
 Stateful artifact updates are backed by bundled helper scripts under `<skill-root>/scripts/`, but most users should keep using the single human-facing entrypoint: **`$codex-autoresearch`**. Here `<skill-root>` means the directory containing the loaded `SKILL.md`; in the common repo-local install this is `.agents/skills/codex-autoresearch`.
+
+If you are not automating or debugging the control plane itself, you can stop here and ignore the raw helper commands below.
 
 When you are scripting or debugging the control plane directly, repo-managed helpers are repo-first by default. Prefer:
 
@@ -524,11 +539,6 @@ Human-facing usage now has a single entrypoint: **`$codex-autoresearch`**.
 - Before the background runtime starts a session or relaunches one, it runs a script-level preflight: `autoresearch_health_check.py` for integrity checks and `autoresearch_commit_gate.py` for scope-aware git safety.
 - `status` and `stop` are background-only controls. Foreground runs stay in the current session and therefore do not use runtime controller artifacts.
 - `Mode: exec` remains the advanced / CI path for fully specified non-interactive runs.
-
-Advanced backend usage is available when you are scripting or debugging the runtime directly:
-
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
 
 
 ---
@@ -605,7 +615,9 @@ codex-autoresearch/
       results/                      # results/state/exec/parallel coverage
   references/
     core-principles.md              # universal principles
-    autonomous-loop-protocol.md     # loop protocol specification
+    runtime-hard-invariants.md      # short execution checklist
+    loop-workflow.md                # thin loop runtime guide
+    autonomous-loop-protocol.md     # detailed loop reference
     plan-workflow.md                # plan mode spec
     debug-workflow.md               # debug mode spec
     fix-workflow.md                 # fix mode spec

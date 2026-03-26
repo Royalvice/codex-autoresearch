@@ -18,11 +18,18 @@ from autoresearch_launch_gate import evaluate_launch_context
 
 
 DEFAULT_RESULTS_PATH = "research-results.tsv"
+RUNTIME_CHECKLIST = (
+    "Baseline first, then initialize fresh artifacts if they do not exist yet.",
+    "Record every completed experiment before starting the next one.",
+    "Use helper scripts for authoritative TSV/state updates.",
+    "Let helper logic own keep/stop gating and retained-state semantics.",
+)
 OPTIONAL_CONFIG_FIELDS = (
     ("execution_policy", "Execution policy"),
     ("guard", "Guard"),
     ("iterations", "Iterations"),
     ("stop_condition", "Stop condition"),
+    ("required_keep_labels", "Required keep labels"),
     ("required_stop_labels", "Required stop labels"),
     ("rollback_policy", "Rollback policy"),
     ("parallel_mode", "Parallel mode"),
@@ -75,6 +82,9 @@ def build_runtime_prompt(
             "",
             f"Results path: {results_path}",
             f"State path: {state_path}",
+            "",
+            "Runtime checklist:",
+            *[f"- {item}" for item in RUNTIME_CHECKLIST],
             "",
             "Instructions:",
             "- Do not run the interactive wizard again.",

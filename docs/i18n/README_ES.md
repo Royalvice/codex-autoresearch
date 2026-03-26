@@ -148,7 +148,7 @@ El diagrama siguiente muestra el lanzamiento interactivo y luego el nucleo de bu
               +----------------------+
 ```
 
-Foreground y background comparten exactamente el mismo protocolo experimental. La unica diferencia es donde se ejecuta el bucle: en la sesion actual de Codex para foreground, o en el controlador desacoplado para background. Ambos corren hasta ser interrumpidos (sin limite) o por exactamente N iteraciones (acotado con `Iterations: N`).
+Foreground y background comparten exactamente el mismo protocolo experimental. La unica diferencia es donde se ejecuta el bucle: en la sesion actual de Codex para foreground, o en el controlador desacoplado para background. Las ejecuciones sin limite siguen hasta que las interrumpas o se alcance otra condicion terminal (objetivo/condicion de parada cumplida, handoff por soft blocker o hard blocker). Las ejecuciones acotadas siguen esas mismas condiciones, pero ademas paran en `Iterations: N`.
 
 **Pseudocodigo:**
 
@@ -390,7 +390,7 @@ Cada ejecucion iterativa salvo `exec` extrae lecciones estructuradas -- que func
 - Lecciones positivas despues de cada iteracion conservada
 - Lecciones estrategicas despues de cada decision PIVOT
 - Lecciones de resumen al completar una ejecucion
-- Capacidad: maximo 50 entradas, las mas antiguas se resumen con decaimiento temporal
+- Objetivo de capacidad: mantener el archivo historico en torno a 50 entradas mientras se preservan intactas las lecciones del run actual; la historia mas antigua se resume con decaimiento temporal
 
 Consulta `references/lessons-protocol.md` para mas detalles.
 
@@ -405,7 +405,7 @@ En lugar de reintentar ciegamente despues de fallos, el bucle usa un sistema de 
 | 3 descartes consecutivos | **REFINE** -- ajustar dentro de la estrategia actual |
 | 5 descartes consecutivos | **PIVOT** -- abandonar la estrategia, probar un enfoque fundamentalmente diferente |
 | 2 PIVOTs sin mejora | **Busqueda web** -- buscar soluciones externas |
-| 3 PIVOTs sin mejora | **Bloqueo suave** -- advertir y continuar con cambios mas audaces |
+| 3 PIVOTs sin mejora | **Bloqueo suave** -- detener el run actual e informar que hace falta intervencion humana, un scope mas amplio o una metrica mejor |
 
 Un solo conservar exitoso reinicia todos los contadores. Consulta `references/pivot-protocol.md`.
 
@@ -434,9 +434,9 @@ Si Codex detecta una ejecucion interactiva interrumpida, puede reanudar desde el
 
 Prioridad de recuperacion para modos interactivos:
 
-1. **JSON + TSV consistentes y manifiesto de lanzamiento presente:** reanudacion inmediata, asistente omitido
-2. **JSON valido, TSV inconsistente:** mini-asistente (1 ronda de confirmacion)
-3. **JSON ausente o corrupto, TSV presente:** la utilidad reconstruye el estado retenido para confirmarlo y luego continua con un nuevo manifiesto de lanzamiento
+1. **Resumen JSON + TSV consistente:** reanudacion inmediata; las ejecuciones `background` ademas requieren un manifiesto de lanzamiento confirmado
+2. **JSON valido, pero el helper informa una discrepancia:** mini-asistente (1 ronda de confirmacion)
+3. **JSON ausente o corrupto, TSV presente:** la utilidad reconstruye el estado retenido para confirmarlo y luego continua en el modo elegido
 4. **Ninguno presente:** inicio limpio (se archivan los artefactos persistentes del control de ejecucion anterior)
 
 Ver `references/session-resume-protocol.md`.
@@ -478,7 +478,10 @@ Consulta `references/exec-workflow.md`.
 Cada iteracion se registra en dos formatos complementarios:
 
 - **`research-results.tsv`** -- pista de auditoria completa, con una fila principal por iteracion y filas worker paralelas cuando haga falta
-- **`autoresearch-state.json`** -- instantanea de estado compacta para reanudacion rapida de sesion en modos interactivos
+- **`autoresearch-state.json`** -- instantanea de estado compacta para reanudacion rapida en `foreground` y recuperacion compartida del estado retenido
+- **`autoresearch-launch.json`** -- manifiesto de lanzamiento confirmado solo para ejecuciones `background`
+- **`autoresearch-runtime.json`** -- estado de control del runtime `background` (PID, estado, ultima decision)
+- **`autoresearch-runtime.log`** -- log del runtime `background` para ejecuciones largas
 
 ```
 iteration  commit   metric  delta   status    description
@@ -488,11 +491,13 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-En modo `exec`, la instantanea de estado solo vive bajo `/tmp/codex-autoresearch-exec/...` y el flujo `exec` debe eliminarla explicitamente antes de salir. Actualiza estos artefactos mediante los helper scripts incluidos en `<skill-root>/scripts/...`, no desde el directorio `scripts/` del repo objetivo.
+En modo `exec`, la instantanea de estado solo vive bajo `/tmp/codex-autoresearch-exec/...` y normalmente se elimina antes de salir con `autoresearch_exec_state.py --cleanup`. Esa limpieza debe ocurrir solo despues del ultimo helper con estado. El flujo helper predeterminado tambien archiva automaticamente `research-results.tsv` y `autoresearch-state.json` de la raiz del repo como `research-results.prev.tsv` y `autoresearch-state.prev.json` antes de iniciar un nuevo run `exec`.
 
 Ambos archivos no se commitean en git. Durante la reanudacion de sesion, el estado JSON se valida cruzadamente con un resumen reconstruido de las iteraciones principales TSV, no con el simple conteo de filas. Los resumenes de progreso se imprimen cada 5 iteraciones. Las ejecuciones acotadas imprimen un resumen final de linea base a mejor resultado.
 
 Estos artefactos de estado se mantienen con helper scripts incluidos bajo `<skill-root>/scripts/...`, pero la mayoria de los usuarios deberia seguir usando el unico punto de entrada humano: **`$codex-autoresearch`**. Aqui `<skill-root>` significa el directorio que contiene el `SKILL.md` cargado; en la instalacion repo-local mas comun es `.agents/skills/codex-autoresearch`.
+
+Si no estas automatizando o depurando el control-plane en si, puedes detenerte aqui e ignorar los comandos helper en bruto que siguen.
 
 Si estas automatizando o depurando el control-plane, los helpers orientados al repo usan `--repo <repo>` por defecto. Prefiere:
 
@@ -517,11 +522,6 @@ De cara al usuario humano, ahora solo hay un punto de entrada principal: **`$cod
 - `execution_policy` solo aplica a los caminos que arrancan sesiones Codex anidadas, es decir, `background` y `exec`; este skill usa `danger_full_access` por defecto
 - Las solicitudes posteriores de `status`, `stop` o `resume` siguen pasando por el mismo `$codex-autoresearch`; `status/stop` solo aplican a `background`
 - `Mode: exec` sigue siendo la via avanzada para CI o automatizacion totalmente especificada
-
-Los comandos directos de control siguen disponibles para scripting o depuracion de la ejecucion:
-
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
 
 
 ---
@@ -591,7 +591,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # principios universales
-    autonomous-loop-protocol.md     # especificacion del protocolo de bucle
+    runtime-hard-invariants.md      # lista compacta de invariantes en ejecucion
+    loop-workflow.md                # guia ligera de ejecucion para loop
+    autonomous-loop-protocol.md     # referencia detallada del bucle
     plan-workflow.md                # especificacion del modo plan
     debug-workflow.md               # especificacion del modo debug
     fix-workflow.md                 # especificacion del modo fix
@@ -620,7 +622,7 @@ codex-autoresearch/
 
 **Funciona con cualquier lenguaje?** Si. El protocolo es agnostico al lenguaje. Solo el comando de verificacion es especifico del dominio.
 
-**Como lo detengo?** Interrumpe Codex, o configura `Iterations: N`. El estado de git siempre es consistente porque los commits ocurren antes de la verificacion.
+**Como lo detengo?** En `foreground`, interrumpe la sesion activa de Codex. En `background`, pide a `$codex-autoresearch` que detenga la ejecucion actual, o llama a `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>` si automatizas el backend directamente. `Iterations: N` y las condiciones de parada tambien siguen funcionando.
 
 **El modo security modifica mi codigo?** No. Analisis de solo lectura. Dile a Codex "tambien repara los hallazgos criticos" durante la configuracion para optar por la remediacion.
 

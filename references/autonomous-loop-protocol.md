@@ -1,10 +1,12 @@
 # Autonomous Loop Protocol
 
-This is the detailed protocol for the generic Codex research loop.
+This is the detailed reference for the generic Codex research loop.
+
+During active execution, keep `runtime-hard-invariants.md` plus the selected mode workflow in memory first. Use this file when you need the full setup, recovery, artifact, or escalation details behind the loop.
 
 ## Loop Modes
 
-- `unbounded`: default. If the user does not specify `Iterations`, keep iterating until interrupted or a hard blocker appears.
+- `unbounded`: default. If the user does not specify `Iterations`, keep iterating until interrupted or another terminal condition is reached (goal/stop condition satisfied, soft-blocker handoff, or hard blocker).
 - `bounded`: when the user explicitly sets `Iterations: N`.
 
 ## Required Inputs
@@ -23,6 +25,7 @@ Optional:
 - `Iterations`
 - `Run tag`
 - `Stop condition`
+- `Required keep labels` (when the run should only retain results from a specific mechanism, path, backend, or root-cause signal)
 - `Required stop labels` (when the goal has a structural or causal success requirement, not just a numeric threshold)
 - `Rollback policy` (required before launch if destructive rollback may be used)
 
@@ -381,9 +384,9 @@ For bounded runs:
 
 For unbounded runs:
 
-- NEVER STOP. NEVER ASK "should I continue?". The user may be asleep.
+- NEVER ask "should I continue?" after launch. The user may be asleep.
 - NEVER pause to ask any question during the loop. If something is unclear, apply best practices and keep going.
-- Continue iterating until explicitly interrupted or a hard blocker appears.
+- Continue iterating until the goal is reached, the user explicitly interrupts, the configured iteration cap is reached, a true blocker appears, or the run reaches the documented soft-blocker handoff.
 - If you run out of obvious ideas, revisit the results log for patterns, try combinations, or attempt bolder changes. Pausing to ask is not an option.
 
 ### PIVOT / REFINE Stuck Recovery
@@ -393,7 +396,7 @@ Replace the simple "5 discards -> re-read" with the graduated escalation system 
 - **3 consecutive discards -> REFINE:** Adjust within current strategy. Consult lessons, change parameters or target files, log as `refine`.
 - **5 consecutive discards -> PIVOT:** Abandon current strategy entirely. Re-read everything, choose a fundamentally different approach, log as `pivot`.
 - **2 PIVOTs without improvement -> Web Search:** Escalate to web search per `references/web-search-protocol.md` (if available and not disabled).
-- **3 PIVOTs without improvement -> Soft Blocker:** Print a warning, continue with increasingly bold changes.
+- **3 PIVOTs without improvement -> Soft Blocker:** Print a warning, stop the current run, and report that human review / broader scope / a better metric is needed.
 
 A single `keep` resets all escalation counters to zero.
 
@@ -426,30 +429,29 @@ Run the Protocol Fingerprint Check when any of the following is true:
 
 - `iteration % 10 == 0`
 - A context compaction warning was observed since the last check
-- The agent notices it cannot recall a specific Hard Rule or Phase definition
+- The agent notices it cannot recall a runtime checklist item or the selected mode workflow
 
 ### Protocol Fingerprint Check
 
-A zero-token self-check. The agent internally verifies 10 yes/no items without reading files or producing output tokens:
+A zero-token self-check. Use `runtime-hard-invariants.md` plus the selected mode workflow as the source of truth. Internally verify that you can still recall:
 
-1. Can recall the complete Phase sequence (0 through 9, including 8.5 and 8.7)
-2. Knows Hard Rule 2 (never ask after launch) and Hard Rule 13 (NEVER STOP)
-3. Knows to use helper scripts instead of hand-editing TSV/JSON (Hard Rule 16)
-4. Knows commit happens before verify (Phase 5 before Phase 6)
-5. Knows PIVOT/REFINE thresholds (3 consecutive discards -> REFINE, 5 -> PIVOT)
-6. Knows guard runs after verify (Phase 6 -> Phase 6.5 -> Phase 7)
-7. Knows one focused change per iteration (Phase 4)
-8. Knows run artifacts stay uncommitted and are never staged (Hard Rule 8)
-9. Can recall the current rollback strategy in use for this run
-10. Knows to extract lessons after every kept iteration and every pivot (Hard Rule 15)
+1. baseline before init,
+2. every completed experiment must be logged before the next one starts,
+3. helper scripts own authoritative TSV/JSON updates and keep/stop gating,
+4. foreground's core artifacts are `research-results.tsv` and `autoresearch-state.json`, while background adds launch/runtime control artifacts,
+5. the current stop conditions for this run,
+6. the current rollback strategy in use,
+7. the active pivot/refine escalation thresholds when they matter,
+8. the selected mode workflow's key deviation from the default loop.
 
 ### On Failure
 
 If any fingerprint item fails:
 
-1. Use the Read tool to re-read `references/autonomous-loop-protocol.md` and `references/core-principles.md` from disk.
-2. In the next TSV row's description, include the `[RE-ANCHOR]` tag to mark that a re-anchoring event occurred.
-3. Continue the loop from Phase 9.
+1. Re-read `references/runtime-hard-invariants.md`, `references/core-principles.md`, and the selected mode workflow from disk.
+2. Re-read `references/autonomous-loop-protocol.md` only if the missing item concerns detailed escalation, recovery, or health-check behavior.
+3. In the next TSV row's description, include the `[RE-ANCHOR]` tag to mark that a re-anchoring event occurred.
+4. Continue the loop from Phase 9.
 
 ### Compaction Counter
 

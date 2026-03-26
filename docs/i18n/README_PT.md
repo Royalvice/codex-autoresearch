@@ -148,7 +148,7 @@ O diagrama abaixo mostra primeiro o fluxo de inicializacao interativo e, em segu
               +----------------------+
 ```
 
-Foreground e background compartilham exatamente o mesmo protocolo experimental. A unica diferenca e onde o loop executa: na sessao atual do Codex para foreground, ou no controlador desacoplado para background. Ambos rodam ate serem interrompidos (sem limite) ou por exatamente N iteracoes (limitadas por `Iterations: N`).
+Foreground e background compartilham exatamente o mesmo protocolo experimental. A unica diferenca e onde o loop executa: na sessao atual do Codex para foreground, ou no controlador desacoplado para background. Execucoes sem limite continuam ate voce interrompe-las ou ate que outra condicao terminal seja atingida (objetivo/condicao de parada cumprida, handoff de soft blocker ou hard blocker). Execucoes limitadas seguem essas mesmas condicoes, mas tambem param em `Iterations: N`.
 
 **Pseudocodigo:**
 
@@ -390,7 +390,7 @@ Cada execucao iterativa, exceto `exec`, extrai licoes estruturadas -- o que func
 - Licoes positivas apos cada iteracao mantida
 - Licoes estrategicas apos cada decisao PIVOT
 - Licoes de resumo ao completar uma execucao
-- Capacidade: maximo 50 entradas, as mais antigas sao resumidas com decaimento temporal
+- Meta de capacidade: manter o arquivo historico em torno de 50 entradas, preservando as lessons do run atual de forma literal; o historico mais antigo e resumido com decaimento temporal
 
 Consulte `references/lessons-protocol.md` para detalhes.
 
@@ -405,7 +405,7 @@ Em vez de tentar cegamente apos falhas, o loop usa um sistema de escalonamento g
 | 3 descartes consecutivos | **REFINE** -- ajustar dentro da estrategia atual |
 | 5 descartes consecutivos | **PIVOT** -- abandonar a estrategia, tentar uma abordagem fundamentalmente diferente |
 | 2 PIVOTs sem melhoria | **Busca web** -- procurar solucoes externas |
-| 3 PIVOTs sem melhoria | **Bloqueio suave** -- avisar e continuar com mudancas mais ousadas |
+| 3 PIVOTs sem melhoria | **Bloqueio suave** -- parar o run atual e relatar que e preciso intervencao humana, um scope mais amplo ou uma metrica melhor |
 
 Um unico manter bem-sucedido reinicia todos os contadores. Consulte `references/pivot-protocol.md`.
 
@@ -434,9 +434,9 @@ Se o Codex detectar uma execucao interativa interrompida, ele pode retomar do ul
 
 Prioridade de recuperacao para modos interativos:
 
-1. **JSON + TSV consistentes, com manifesto de lancamento presente:** retomada imediata, assistente ignorado
-2. **JSON valido, TSV inconsistente:** mini-assistente (1 rodada de confirmacao)
-3. **JSON ausente ou corrompido, TSV presente:** o utilitario reconstrui o estado retido para confirmacao e depois continua com um novo manifesto de lancamento
+1. **Resumo JSON + TSV consistente:** retomada imediata; runs `background` tambem exigem um manifesto de lancamento confirmado
+2. **JSON valido, mas o helper reporta divergencia:** mini-assistente (1 rodada de confirmacao)
+3. **JSON ausente ou corrompido, TSV presente:** o utilitario reconstrui o estado retido para confirmacao e depois continua no modo escolhido
 4. **Nenhum presente:** inicio limpo (os artefatos persistentes anteriores de controle do run sao arquivados)
 
 Veja `references/session-resume-protocol.md`.
@@ -478,7 +478,10 @@ Consulte `references/exec-workflow.md`.
 Cada iteracao e registrada em dois formatos complementares:
 
 - **`research-results.tsv`** -- trilha de auditoria completa, com uma linha principal por iteracao e linhas paralelas de worker quando necessario
-- **`autoresearch-state.json`** -- snapshot de estado compacto para retomada rapida de sessao em modos interativos
+- **`autoresearch-state.json`** -- snapshot de estado compacto para retomada rapida em `foreground` e recuperacao compartilhada do estado retido
+- **`autoresearch-launch.json`** -- manifesto de lancamento confirmado apenas para runs `background`
+- **`autoresearch-runtime.json`** -- estado de controle do runtime `background` (PID, status, ultima decisao)
+- **`autoresearch-runtime.log`** -- log do runtime `background` para execucoes longas
 
 ```
 iteration  commit   metric  delta   status    description
@@ -488,11 +491,13 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-No modo `exec`, o snapshot de estado existe apenas em `/tmp/codex-autoresearch-exec/...` e o fluxo `exec` deve remove-lo explicitamente antes da saida. Atualize esses artefatos pelos helper scripts empacotados em `<skill-root>/scripts/...`, e nao pelo diretorio `scripts/` do repo alvo.
+No modo `exec`, o snapshot de estado existe apenas em `/tmp/codex-autoresearch-exec/...` e normalmente e removido antes da saida com `autoresearch_exec_state.py --cleanup`. Essa limpeza deve acontecer somente depois do ultimo helper com estado. O fluxo helper padrao tambem arquiva automaticamente `research-results.tsv` e `autoresearch-state.json` da raiz do repo como `research-results.prev.tsv` e `autoresearch-state.prev.json` antes de iniciar um novo run `exec`.
 
 Ambos os arquivos nao sao commitados no git. Durante a retomada de sessao, o estado JSON e validado cruzadamente com um resumo reconstruido das iteracoes principais do TSV, e nao com a simples contagem de linhas. Resumos de progresso sao impressos a cada 5 iteracoes. Execucoes limitadas imprimem um resumo final da linha de base ao melhor resultado.
 
 Esses artefatos de estado sao mantidos pelos helper scripts empacotados em `<skill-root>/scripts/...`, mas a maioria dos usuarios deve continuar usando apenas o unico ponto de entrada humano: **`$codex-autoresearch`**. Aqui, `<skill-root>` significa o diretorio que contem o `SKILL.md` carregado; na instalacao repo-local mais comum isso e `.agents/skills/codex-autoresearch`.
+
+Se voce nao estiver automatizando nem depurando a propria control-plane, pode parar por aqui e ignorar os comandos helper brutos abaixo.
 
 Se voce estiver automatizando ou depurando a control-plane, os helpers orientados ao repo usam `--repo <repo>` por padrao. Prefira:
 
@@ -517,11 +522,6 @@ Para usuarios humanos, agora existe apenas uma entrada principal: **`$codex-auto
 - `execution_policy` so se aplica aos caminhos que iniciam sessoes Codex aninhadas, isto e, `background` e `exec`; este skill usa `danger_full_access` por padrao
 - Pedidos posteriores de `status`, `stop` ou `resume` continuam passando pelo mesmo `$codex-autoresearch`; `status/stop` so valem para `background`
 - `Mode: exec` continua sendo o caminho avancado para CI ou automacao totalmente especificada
-
-Os comandos diretos de controle continuam disponiveis para scripting ou depuracao da execucao:
-
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
 
 
 ---
@@ -591,7 +591,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # principios universais
-    autonomous-loop-protocol.md     # especificacao do protocolo de loop
+    runtime-hard-invariants.md      # checklist compacta de execucao
+    loop-workflow.md                # guia enxuto de execucao do loop
+    autonomous-loop-protocol.md     # referencia detalhada do loop
     plan-workflow.md                # especificacao do modo plan
     debug-workflow.md               # especificacao do modo debug
     fix-workflow.md                 # especificacao do modo fix
@@ -620,7 +622,7 @@ codex-autoresearch/
 
 **Funciona com qualquer linguagem?** Sim. O protocolo e agnostico a linguagem. Apenas o comando de verificacao e especifico do dominio.
 
-**Como eu paro?** Interrompa o Codex, ou configure `Iterations: N`. O estado do git e sempre consistente porque os commits acontecem antes da verificacao.
+**Como eu paro?** Em `foreground`, interrompa a sessao ativa do Codex. Em `background`, peca ao `$codex-autoresearch` para parar a execucao atual, ou chame `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>` se estiver automatizando o backend diretamente. `Iterations: N` e as condicoes de parada continuam funcionando.
 
 **O modo security modifica meu codigo?** Nao. Analise somente leitura. Diga ao Codex "tambem corrija os achados criticos" durante a configuracao para optar pela remediacao.
 

@@ -30,6 +30,7 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
     "best_metric": 28,
     "best_iteration": 12,
     "current_metric": 28,
+    "current_labels": ["production-path"],
     "last_commit": "a1b2c3d",
     "last_repo_commits": {
       "/path/to/primary-repo": "a1b2c3d",
@@ -41,6 +42,7 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
       "/path/to/companion-repo": "c3d4e5f"
     },
     "last_trial_metric": 31,
+    "last_trial_labels": ["production-path", "root-cause"],
     "keeps": 8,
     "discards": 5,
     "crashes": 1,
@@ -72,6 +74,8 @@ If an existing interactive run switches from foreground to background or back ag
 `config.repos` is optional for older single-repo states. When present, it is the authoritative managed-repo list: one primary repo plus any companion repos, each with its own scope. `config.scope` remains the primary repo's scope for backward-compatible callers.
 
 `state.last_repo_commits` and `state.last_trial_repo_commits` are optional multi-repo provenance maps keyed by repo path. They complement the TSV's single `commit` column, which continues to record only the primary repo commit. These maps are preserved when valid JSON state exists, but they are not reconstructed from the TSV alone and therefore are not part of the hard TSV/JSON consistency contract.
+
+`state.current_labels` and `state.last_trial_labels` carry the normalized structured labels attached to the retained keep and the latest trial row. They are used for keep/stop label gates and should be preserved during resume and repair flows.
 
 The `supervisor` object is optional. It is written by the runtime control plane (`autoresearch_runtime_ctl.py` and `autoresearch_supervisor_status.py`), is not required for normal session resume, and should be preserved if present.
 

@@ -12,13 +12,13 @@ Autonomous goal-directed iteration. Modify -> Verify -> Keep/Discard -> Repeat.
 ## When Activated
 
 1. Classify the request as `loop`, `plan`, `debug`, `fix`, `security`, `ship`, or `exec`, and parse any inline config from the prompt.
-2. Load `references/core-principles.md` and `references/structured-output-spec.md`.
+2. Load `references/core-principles.md` and `references/structured-output-spec.md`. For active execution modes (`loop`, `debug`, `fix`, `security`, `ship`, `exec`), also load `references/runtime-hard-invariants.md`.
 3. Load only the additional references the current situation needs:
    - `references/session-resume-protocol.md` when resuming or controlling an existing run
-   - `references/results-logging.md` when touching results/state artifacts
    - `references/environment-awareness.md` before choosing hardware-sensitive work
    - `references/interaction-wizard.md` for every new interactive launch (`loop`, `debug`, `fix`, `security`, `ship`) before execution begins
-4. Load the mode-specific workflow reference plus only the cross-cutting protocols that actually apply (`lessons`, `pivot`, `health-check`, `parallel`, `web-search`, `hypothesis-perspectives`).
+   - `references/results-logging.md` only when debugging TSV/state semantics or helper behavior directly
+4. Load the selected mode workflow reference plus only the detailed cross-cutting protocols that actually apply (`lessons`, `pivot`, `health-check`, `parallel`, `web-search`, `hypothesis-perspectives`).
 5. Use the bundled helper scripts when stateful artifacts or runtime control are involved. Resolve them relative to the loaded skill bundle root (`<skill-root>/scripts/...`), not the target repo root. In the common repo-local install this means commands such as `python3 .agents/skills/codex-autoresearch/scripts/autoresearch_init_run.py ...`. For repo-managed control-plane helpers (`autoresearch_resume_check.py`, `autoresearch_launch_gate.py`, `autoresearch_resume_prompt.py`, `autoresearch_supervisor_status.py`, `autoresearch_runtime_ctl.py status/stop`), prefer `--repo <repo>` and let the helper derive default artifact paths.
 6. Execute the selected workflow exactly as written and produce the required structured output and artifacts.
 
@@ -37,7 +37,7 @@ Autonomous goal-directed iteration. Modify -> Verify -> Keep/Discard -> Repeat.
 
 | Mode | Purpose | Primary Reference |
 |------|---------|-------------------|
-| `loop` | Run the autonomous improvement loop | `references/autonomous-loop-protocol.md` |
+| `loop` | Run the autonomous improvement loop | `references/loop-workflow.md` |
 | `plan` | Convert a vague goal into a launch-ready config | `references/plan-workflow.md` |
 | `debug` | Hunt bugs with evidence and hypotheses | `references/debug-workflow.md` |
 | `fix` | Iteratively reduce errors to zero | `references/fix-workflow.md` |
@@ -94,12 +94,12 @@ For every new interactive run, use the wizard contract in `references/interactio
 12. Unlimited runs by default unless the user explicitly asks for `Iterations: N`.
 13. External ship actions (deploy, publish, release) must be confirmed during the pre-launch wizard phase. If not confirmed before launch, skip them and log as blocker.
 14. Do not ask "should I continue?". Once launched, keep the chosen run mode active until interrupted or a hard blocker / configured terminal condition appears (see `references/autonomous-loop-protocol.md` Stop Conditions for the full definition).
-15. When stuck (3+ consecutive discards), use the PIVOT/REFINE escalation ladder from `references/pivot-protocol.md` instead of brute-force retrying.
-16. Extract lessons after every kept iteration and every pivot (see `references/lessons-protocol.md`).
+15. During active execution, keep `references/runtime-hard-invariants.md` as the primary runtime checklist. Foreground's core persistent artifacts are `research-results.tsv` and `autoresearch-state.json`; lessons are helper-derived secondary output.
+16. When stuck (3+ consecutive discards), use the PIVOT/REFINE escalation ladder from `references/pivot-protocol.md` instead of brute-force retrying.
 17. Prefer the bundled helper scripts over hand-editing `research-results.tsv`, `autoresearch-state.json`, or runtime-control files. Always call them via the skill-bundle path (`<skill-root>/scripts/...`); never call bare `scripts/autoresearch_*.py` from the target repo root unless the skill bundle itself is actually installed there.
 18. In `exec` mode, never leave repo-root `autoresearch-state.json` behind. If helper scripts need state, use the exec scratch path and explicitly clean it up before exit. When you use `autoresearch_init_run.py --mode exec ...` with the default repo-root artifact names, do not manually rename old `research-results.tsv` or `autoresearch-state.json`; the helper already archives them to the canonical `research-results.prev.tsv` and `autoresearch-state.prev.json` paths before it starts fresh.
-19. After any context compaction event (the CLI warns about thread length and compaction), re-read `references/autonomous-loop-protocol.md` and `references/core-principles.md` from disk before the next iteration. Do not rely on memory of these documents after compaction.
-20. Every 10 iterations, perform the Protocol Fingerprint Check defined in Phase 8.7 of `references/autonomous-loop-protocol.md`. If any item fails, re-read all loaded protocol files from disk before continuing.
+19. After any context compaction event (the CLI warns about thread length and compaction), re-read `references/runtime-hard-invariants.md`, `references/core-principles.md`, and the selected mode workflow from disk before the next iteration. Do not rely on memory of those documents after compaction.
+20. Every 10 iterations, perform the Protocol Fingerprint Check defined in `references/runtime-hard-invariants.md`. Use Phase 8.7 of `references/autonomous-loop-protocol.md` only for the detailed re-anchoring procedure. If any item fails, re-read all loaded runtime docs from disk before continuing.
 
 ## Structured Output
 
@@ -135,6 +135,8 @@ Codex scans the repo, asks targeted questions to clarify your intent, asks you t
 ## References
 
 - `references/core-principles.md`
+- `references/runtime-hard-invariants.md`
+- `references/loop-workflow.md`
 - `references/autonomous-loop-protocol.md`
 - `references/interaction-wizard.md`
 - `references/structured-output-spec.md`

@@ -146,7 +146,7 @@ Die folgende Grafik zeigt zuerst den interaktiven Startfluss und danach den geme
               +----------------------+
 ```
 
-Foreground und background teilen sich dasselbe Experimentprotokoll. Der einzige Unterschied ist, wo die Schleife ausgefuehrt wird: in der aktuellen Codex-Sitzung fuer foreground oder im detached runtime controller fuer background. Beide laufen bis zur Unterbrechung (unbegrenzt) oder fuer genau N Iterationen (begrenzt durch `Iterations: N`).
+Foreground und background teilen sich dasselbe Experimentprotokoll. Der einzige Unterschied ist, wo die Schleife ausgefuehrt wird: in der aktuellen Codex-Sitzung fuer foreground oder im detached runtime controller fuer background. Unbegrenzte Laeufe laufen weiter, bis Sie sie unterbrechen oder eine andere Endbedingung erreicht ist (Ziel/Stop-Bedingung erfuellt, Soft-Blocker-Handoff oder Hard Blocker). Begrenzte Laeufe folgen denselben Endbedingungen, stoppen aber zusaetzlich bei `Iterations: N`.
 
 **Pseudocode:**
 
@@ -388,7 +388,7 @@ Jeder iterative Lauf ausser `exec` extrahiert strukturierte Erkenntnisse -- was 
 - Positive Erkenntnisse nach jeder beibehaltenen Iteration
 - Strategische Erkenntnisse nach jeder PIVOT-Entscheidung
 - Zusammenfassende Erkenntnisse beim Abschluss eines Laufs
-- Kapazitaet: maximal 50 Eintraege, aeltere Eintraege werden mit zeitlichem Verfall zusammengefasst
+- Kapazitaetsziel: das historische Archiv grob bei 50 Eintraegen halten, waehrend Lessons des aktuellen Runs unveraendert erhalten bleiben; aeltere Historie wird mit zeitlichem Verfall zusammengefasst
 
 Siehe `references/lessons-protocol.md` fuer Details.
 
@@ -403,7 +403,7 @@ Anstatt nach Fehlschlaegen blind erneut zu versuchen, verwendet die Schleife ein
 | 3 aufeinanderfolgende Verwerfungen | **REFINE** -- Anpassung innerhalb der aktuellen Strategie |
 | 5 aufeinanderfolgende Verwerfungen | **PIVOT** -- Strategie aufgeben, grundlegend anderen Ansatz versuchen |
 | 2 PIVOTs ohne Verbesserung | **Websuche** -- nach externen Loesungen suchen |
-| 3 PIVOTs ohne Verbesserung | **Weiche Blockade** -- warnen und mit mutigeren Aenderungen fortfahren |
+| 3 PIVOTs ohne Verbesserung | **Weiche Blockade** -- den aktuellen Run stoppen und melden, dass menschliche Hilfe, ein breiterer Scope oder eine bessere Metrik noetig ist |
 
 Ein einzelnes erfolgreiches Behalten setzt alle Zaehler zurueck. Siehe `references/pivot-protocol.md`.
 
@@ -432,9 +432,9 @@ Wenn Codex in einem interaktiven Modus einen zuvor unterbrochenen Lauf erkennt, 
 
 Wiederherstellungsprioritaet fuer interaktive Modi:
 
-1. **JSON + TSV konsistent, Launch-Manifest vorhanden:** sofortige Wiederaufnahme, Assistent uebersprungen
-2. **JSON gueltig, TSV inkonsistent:** Mini-Assistent (1 Runde Bestaetigung)
-3. **JSON fehlt oder ist beschaedigt, TSV vorhanden:** Der Helper rekonstruiert den beibehaltenen Zustand zur Bestaetigung und faehrt dann mit einem neuen Launch-Manifest fort
+1. **JSON + TSV-Zusammenfassung konsistent:** sofortige Wiederaufnahme; background-Laeufe brauchen zusaetzlich ein bestaetigtes Launch-Manifest
+2. **JSON gueltig, Helper meldet Abweichung:** Mini-Assistent (1 Runde Bestaetigung)
+3. **JSON fehlt oder ist beschaedigt, TSV vorhanden:** Der Helper rekonstruiert den beibehaltenen Zustand zur Bestaetigung und faehrt dann im gewaehlten Modus fort
 4. **Keines vorhanden:** Neustart (vorherige persistente Run-Control-Artefakte werden archiviert)
 
 Siehe `references/session-resume-protocol.md`.
@@ -476,7 +476,10 @@ Siehe `references/exec-workflow.md`.
 Jede Iteration wird in zwei komplementaeren Formaten aufgezeichnet:
 
 - **`research-results.tsv`** -- vollstaendiger Audit-Trail, mit einer Hauptzeile pro Iteration und optionalen parallelen Worker-Zeilen
-- **`autoresearch-state.json`** -- kompakter Zustandssnapshot fuer schnelle Sitzungswiederaufnahme in interaktiven Modi
+- **`autoresearch-state.json`** -- kompakter Zustandssnapshot fuer schnelle foreground-Wiederaufnahme und gemeinsame retained-state-Recovery
+- **`autoresearch-launch.json`** -- bestaetigtes Launch-Manifest nur fuer background-Laeufe
+- **`autoresearch-runtime.json`** -- Zustand der background-Laufzeitsteuerung (PID, Status, letzte Entscheidung)
+- **`autoresearch-runtime.log`** -- background-Laufzeitlog fuer lange Laeufe
 
 ```
 iteration  commit   metric  delta   status    description
@@ -486,11 +489,13 @@ iteration  commit   metric  delta   status    description
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
-Im Modus `exec` existiert der Zustandssnapshot nur unter `/tmp/codex-autoresearch-exec/...` und muss vom `exec`-Workflow vor dem Beenden explizit bereinigt werden. Aktualisieren Sie diese Artefakte ueber die gebuendelten Helper-Skripte unter `<skill-root>/scripts/...`, nicht ueber das `scripts/`-Verzeichnis des Ziel-Repos.
+Im Modus `exec` existiert der Zustandssnapshot nur unter `/tmp/codex-autoresearch-exec/...` und wird vor dem Beenden normalerweise per `autoresearch_exec_state.py --cleanup` entfernt. Diese Bereinigung sollte erst nach dem letzten zustandsbehafteten Helper-Aufruf erfolgen. Der Standard-Helperfluss archiviert ausserdem vor einem neuen exec-Run automatisch `research-results.tsv` und `autoresearch-state.json` im Repo-Root als `research-results.prev.tsv` und `autoresearch-state.prev.json`.
 
 Beide Dateien werden nicht in git committed. Bei der Sitzungswiederaufnahme wird der JSON-Zustand gegen eine rekonstruierte TSV-Hauptiterationszusammenfassung kreuzvalidiert und nicht gegen die rohe Zeilenanzahl. Fortschrittsberichte werden alle 5 Iterationen ausgegeben. Begrenzte Laeufe geben am Ende eine Zusammenfassung von Baseline bis Bestwert aus.
 
 Diese Zustandsartefakte werden zwar von den mit dem Skill gebuendelten Helper-Skripten unter `<skill-root>/scripts/...` verwaltet, aber die meisten Nutzer sollten beim einzigen menschlichen Einstiegspunkt bleiben: **`$codex-autoresearch`**. Hier bezeichnet `<skill-root>` das Verzeichnis mit der geladenen `SKILL.md`; bei der ueblichen repo-lokalen Installation ist das `.agents/skills/codex-autoresearch`.
+
+Wenn Sie nicht gerade die Control-Plane selbst automatisieren oder debuggen, koennen Sie hier aufhoeren und die folgenden rohen Helper-Befehle ignorieren.
 
 Wenn Sie die Control-Plane skripten oder debuggen, verwenden repo-zentrierte Helper standardmaessig `--repo <repo>`. Bevorzugen Sie dann:
 
@@ -515,11 +520,6 @@ Fuer Menschen gibt es jetzt nur noch einen einzigen Haupteinstieg: **`$codex-aut
 - `execution_policy` gilt nur fuer Pfade, die verschachtelte Codex-Sitzungen starten, also fuer `background` und `exec`; dieses Skill verwendet standardmaessig `danger_full_access`
 - Spaetere Anfragen wie `status`, `stop` oder `resume` laufen weiterhin ueber dasselbe `$codex-autoresearch`; `status/stop` gelten nur fuer `background`
 - `Mode: exec` bleibt der erweiterte Pfad fuer CI und voll spezifizierte Automatisierung
-
-Direkte Steuerbefehle bleiben fuer Skripting oder das Debugging der Laufzeit verfuegbar:
-
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo <repo>`
-- `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>`
 
 
 ---
@@ -589,7 +589,9 @@ codex-autoresearch/
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   references/
     core-principles.md              # universelle Prinzipien
-    autonomous-loop-protocol.md     # Schleifen-Protokollspezifikation
+    runtime-hard-invariants.md      # kompakte Laufzeit-Checkliste
+    loop-workflow.md                # schlanker Laufzeit-Workflow fuer loop
+    autonomous-loop-protocol.md     # detaillierte Schleifenreferenz
     plan-workflow.md                # Spezifikation Modus plan
     debug-workflow.md               # Spezifikation Modus debug
     fix-workflow.md                 # Spezifikation Modus fix
@@ -618,7 +620,7 @@ codex-autoresearch/
 
 **Funktioniert mit jeder Sprache?** Ja. Das Protokoll ist sprachunabhaengig. Nur der Verify-Befehl ist domaenenspezifisch.
 
-**Wie stoppe ich es?** Unterbrechen Sie Codex, oder setzen Sie `Iterations: N`. Der git-Zustand ist immer konsistent, da Commits vor der Verifikation stattfinden.
+**Wie stoppe ich es?** Im `foreground`-Modus unterbrechen Sie die aktive Codex-Sitzung. Im `background`-Modus bitten Sie `$codex-autoresearch`, den aktuellen Lauf zu stoppen, oder rufen `python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo <repo>` auf, wenn Sie das Backend direkt automatisieren. `Iterations: N` und Stop-Bedingungen funktionieren ebenfalls.
 
 **Aendert der security-Modus meinen Code?** Nein. Reine Leseanalyse. Sagen Sie Codex waehrend der Einrichtung "auch kritische Befunde beheben", um die Behebung zu aktivieren.
 

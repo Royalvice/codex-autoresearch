@@ -244,6 +244,70 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             self.assertEqual(status["decision"], "stop")
             self.assertEqual(status["reason"], "iteration_cap_reached")
 
+    def test_supervisor_status_needs_human_after_three_pivots_without_keep(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            results_path = tmpdir / "research-results.tsv"
+            state_path = tmpdir / "autoresearch-state.json"
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(results_path),
+                "--state-path",
+                str(state_path),
+                "--mode",
+                "loop",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "pytest -q",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "a1b2c3d",
+                "--baseline-description",
+                "baseline failures",
+            )
+            for description in (
+                "pivot from auth wrappers to API handlers",
+                "pivot from API handlers to shared utilities",
+                "pivot from shared utilities to architectural cleanup",
+            ):
+                self.run_script(
+                    "autoresearch_record_iteration.py",
+                    "--results-path",
+                    str(results_path),
+                    "--state-path",
+                    str(state_path),
+                    "--status",
+                    "pivot",
+                    "--description",
+                    description,
+                )
+
+            status = self.run_script(
+                "autoresearch_supervisor_status.py",
+                "--results-path",
+                str(results_path),
+                "--state-path",
+                str(state_path),
+                "--after-run",
+                "--write-state",
+            )
+            self.assertEqual(status["decision"], "needs_human")
+            self.assertEqual(status["reason"], "soft_blocked")
+
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(state["supervisor"]["recommended_action"], "needs_human")
+            self.assertEqual(state["supervisor"]["last_exit_kind"], "soft_blocked")
+
     def test_supervisor_status_stops_when_stop_condition_reaches_zero(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
@@ -896,6 +960,9 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             self.assertIn("Session mode: background", prompt)
             self.assertIn("Do not run the interactive wizard again.", prompt)
             self.assertIn("Stop condition: stop when metric reaches 0", prompt)
+            self.assertIn("Runtime checklist:", prompt)
+            self.assertIn("Record every completed experiment before starting the next one.", prompt)
+            self.assertIn("Use helper scripts for authoritative TSV/state updates.", prompt)
 
             status = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -1104,6 +1171,8 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             )
             self.assertIn(f"Results path: {results_path.resolve()}", normalized)
             self.assertIn(f"State path: {state_path.resolve()}", normalized)
+            self.assertIn("Runtime checklist:", normalized)
+            self.assertIn("Record every completed experiment before starting the next one.", normalized)
 
     def test_create_launch_manifest_persists_managed_repo_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

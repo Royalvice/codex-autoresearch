@@ -11,15 +11,17 @@ SKILL.md  (always loaded -- entrypoint)
   |
   +-- references/core-principles.md         (always loaded)
   +-- references/structured-output-spec.md  (always loaded)
+  +-- references/runtime-hard-invariants.md (always loaded for active execution)
   +-- references/session-resume-protocol.md (check for prior run)
   +-- references/environment-awareness.md   (probe hardware/toolchains)
-  +-- references/autonomous-loop-protocol.md (loaded for iterating modes)
+  +-- references/loop-workflow.md           (loaded for default loop execution)
   +-- references/interaction-wizard.md       (loaded for every new interactive launch)
   +-- references/{mode}-workflow.md          (loaded per mode)
-  +-- references/results-logging.md          (loaded when logging is needed)
-  +-- references/lessons-protocol.md         (loaded for iterating modes)
-  +-- references/pivot-protocol.md           (loaded for iterating modes)
-  +-- references/health-check-protocol.md    (loaded for iterating modes)
+  +-- references/autonomous-loop-protocol.md (detailed loop reference)
+  +-- references/results-logging.md          (loaded for TSV/state troubleshooting)
+  +-- references/lessons-protocol.md         (loaded when lessons behavior matters)
+  +-- references/pivot-protocol.md           (loaded when stuck recovery is active)
+  +-- references/health-check-protocol.md    (loaded when integrity checks are needed)
   +-- references/hypothesis-perspectives.md  (loaded when beneficial)
   +-- references/parallel-experiments-protocol.md (loaded when parallel enabled)
   +-- references/web-search-protocol.md      (loaded when web search enabled)
@@ -62,7 +64,9 @@ The project has two layers: the **skill layer** (what Codex reads) and the **doc
 | If you want to change... | Edit this file |
 |--------------------------|---------------|
 | Which modes exist, how they route | `SKILL.md` |
-| How the core loop works (phases, rollback, stuck recovery) | `references/autonomous-loop-protocol.md` |
+| The short runtime execution checklist | `references/runtime-hard-invariants.md` |
+| How the default loop runs during active execution | `references/loop-workflow.md` |
+| Detailed loop phases, rollback, stuck recovery | `references/autonomous-loop-protocol.md` |
 | How Codex asks users for information before starting | `references/interaction-wizard.md` |
 | How a specific mode behaves | `references/{mode}-workflow.md` |
 | What output gets produced | `references/structured-output-spec.md` |

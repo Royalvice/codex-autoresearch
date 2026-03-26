@@ -23,6 +23,8 @@ required_paths=(
 # Core reference files
 required_references=(
   "$ROOT/references/core-principles.md"
+  "$ROOT/references/runtime-hard-invariants.md"
+  "$ROOT/references/loop-workflow.md"
   "$ROOT/references/autonomous-loop-protocol.md"
   "$ROOT/references/interaction-wizard.md"
   "$ROOT/references/structured-output-spec.md"
@@ -117,7 +119,7 @@ if ! grep -rn '\$codex-autoresearch' "$ROOT/SKILL.md" "$ROOT/README.md" "$ROOT/d
 fi
 
 # Verify SKILL.md references all new protocol files
-for ref in lessons-protocol pivot-protocol web-search-protocol environment-awareness \
+for ref in runtime-hard-invariants loop-workflow lessons-protocol pivot-protocol web-search-protocol environment-awareness \
            parallel-experiments-protocol session-resume-protocol health-check-protocol \
            hypothesis-perspectives exec-workflow; do
   if ! grep -q "$ref" "$ROOT/SKILL.md"; then
@@ -125,6 +127,52 @@ for ref in lessons-protocol pivot-protocol web-search-protocol environment-aware
     exit 1
   fi
 done
+
+nonempty_runtime_lines=$(grep -cve '^[[:space:]]*$' "$ROOT/references/runtime-hard-invariants.md")
+if [[ "$nonempty_runtime_lines" -gt 32 ]]; then
+  echo "runtime-hard-invariants.md is too long ($nonempty_runtime_lines non-empty lines)" >&2
+  exit 1
+fi
+
+if ! grep -q 'references/runtime-hard-invariants.md' "$ROOT/SKILL.md"; then
+  echo "SKILL.md must load runtime-hard-invariants.md" >&2
+  exit 1
+fi
+
+if ! grep -q 'references/loop-workflow.md' "$ROOT/SKILL.md"; then
+  echo "SKILL.md must route loop mode through loop-workflow.md" >&2
+  exit 1
+fi
+
+if grep -q 'load `autonomous-loop-protocol.md` for all iterating modes' "$ROOT/references/modes.md"; then
+  echo "modes.md still treats autonomous-loop-protocol.md as a default runtime load" >&2
+  exit 1
+fi
+
+if ! grep -q 'load `runtime-hard-invariants.md` for active execution' "$ROOT/references/modes.md"; then
+  echo "modes.md must require runtime-hard-invariants.md for active execution" >&2
+  exit 1
+fi
+
+if grep -q 'NEVER STOP\. NEVER ASK "should I continue\?"' "$ROOT/references/autonomous-loop-protocol.md"; then
+  echo "autonomous-loop-protocol.md still contains the old NEVER STOP runtime contract" >&2
+  exit 1
+fi
+
+if grep -q 'Hard Rule 13 (NEVER STOP)' "$ROOT/references/autonomous-loop-protocol.md"; then
+  echo "autonomous-loop-protocol.md still contains stale hard-rule fingerprint content" >&2
+  exit 1
+fi
+
+if ! grep -q 'Use `runtime-hard-invariants.md` plus the selected mode workflow as the source of truth\.' "$ROOT/references/autonomous-loop-protocol.md"; then
+  echo "autonomous-loop-protocol.md must anchor Phase 8.7 to runtime-hard-invariants.md" >&2
+  exit 1
+fi
+
+if ! grep -q 'Log every completed experiment before the next one starts\.' "$ROOT/references/interaction-wizard.md"; then
+  echo "interaction-wizard.md is missing the runtime logging checklist reminder" >&2
+  exit 1
+fi
 
 # Verify autonomous-loop-protocol.md contains Phase 8.7 and Re-Anchor
 if ! grep -q "Phase 8.7" "$ROOT/references/autonomous-loop-protocol.md"; then

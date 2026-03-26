@@ -64,10 +64,18 @@ For that to hold in practice, launch Codex CLI with approvals / sandbox settings
 The only things that stop the loop:
 
 - You interrupt Codex
+- The goal or configured stop condition is reached
 - The iteration cap is reached (if you set one)
+- A soft blocker handoff occurs after strategy exhaustion
 - A hard blocker appears (verify command broken, repo corrupted, disk full, same crash 5+ times)
 
 This boundary is absolute at the skill level. Everything before "go" can ask. Everything after "go" is silent.
+
+Once execution begins, keep the runtime contract tiny:
+
+- baseline before init
+- record every completed experiment before the next one starts
+- use helper scripts for authoritative log/state updates
 
 ---
 
@@ -100,7 +108,7 @@ Every iterating mode (loop, debug, fix, security, ship) shares the same cycle:
 4. **Verify** -- run the verify command, extract the metric value
 5. **Guard** -- if set, run the guard command to check for regressions
 6. **Decide** -- metric improved and guard passed = keep; otherwise revert
-7. **Log** -- append result to `research-results.tsv`
+7. **Log** -- record the result before starting the next experiment
 
 Revert uses the rollback strategy approved during setup. In a dedicated experiment branch/worktree with pre-launch approval, it may use `git reset --hard HEAD~1`; otherwise it uses `git revert --no-edit HEAD`.
 
@@ -163,7 +171,8 @@ Codex infers these from your natural language input and repo context. You never 
 |-------|---------|--------------|
 | `Guard` | none | Regression-prevention command that must always pass |
 | `Iterations` | unlimited | Stop after N iterations |
-| `Run tag` | auto-generated | Label for this run in the results log |
+| `Run tag` | none (optional) | Label for this run in the results log when the launch config provides one |
+| `Required keep labels` | none | Structured labels that a numerically improved trial must carry before it can enter retained state (for example `production-path`, `real-backend`) |
 | `Stop condition` | none | Custom early-stop rule (e.g., "stop when metric reaches 1" or "stop when metric reaches 90") |
 | `Required stop labels` | none | Structured labels that the retained keep must carry before a numeric stop condition can terminate the run (for example `production-path`, `root-cause`) |
 
@@ -216,6 +225,7 @@ Codex: Starting background run -- baseline: 47. Detached runtime is now iteratin
 ```
 
 Reference: `references/autonomous-loop-protocol.md`
+Thin runtime guide: `references/loop-workflow.md`
 
 ### plan
 
@@ -503,7 +513,7 @@ The loop uses a graduated escalation system instead of blind retrying:
 
 3. **Web Search** (2 PIVOTs without improvement): Search the web for solutions if available. Results are treated as hypotheses and verified mechanically.
 
-4. **Soft Blocker** (3 PIVOTs without improvement): Print a warning, continue with increasingly bold changes. The loop never stops unless a hard blocker appears.
+4. **Soft Blocker** (3 PIVOTs without improvement): Print a warning, stop the current run, and report that human review, broader scope, or a better metric is needed.
 
 A single successful keep resets all escalation counters to zero.
 
@@ -542,7 +552,7 @@ Long-running sessions (20+ iterations) may experience context drift when the CLI
 
 ### Automatic Re-Anchoring
 
-Every 10 iterations (or more frequently after compaction), the agent runs a Protocol Fingerprint Check -- a zero-cost internal self-test that verifies it still remembers all critical rules and phase definitions. If any item fails, the agent re-reads the protocol files from disk before continuing. These events are marked with `[RE-ANCHOR]` in the results log.
+Every 10 iterations (or more frequently after compaction), the agent runs a Protocol Fingerprint Check -- a zero-cost internal self-test that verifies it still remembers the runtime checklist and selected mode workflow. If any item fails, the agent re-reads the loaded runtime docs from disk before continuing. These events are marked with `[RE-ANCHOR]` in the results log.
 
 You do not need to do anything to enable this. It runs automatically as part of Phase 8.7 in the iteration cycle.
 
@@ -577,6 +587,8 @@ Use the same skill entry for follow-up control:
 - ask to resume -> the skill checks launch/runtime state and continues if safe
 
 Advanced backend commands are still available for scripting or debugging:
+
+If you are not automating or debugging the backend directly, ignore the commands below and keep using `$codex-autoresearch`.
 
 ```bash
 python3 <skill-root>/scripts/autoresearch_resume_check.py --repo /path/to/repo
@@ -617,7 +629,7 @@ Non-interactive mode for automation pipelines. Differences from interactive mode
 
 Before using `codex exec` in CI, configure Codex CLI authentication in advance. In controlled automation environments, prefer `codex exec --dangerously-bypass-approvals-and-sandbox ...` so the verify command has the same full-access behavior as the managed runtime. For programmatic runs, API key authentication is the preferred option.
 
-When the bundled helper scripts drive `Mode: exec`, do not manually rename old repo-root artifacts first. `autoresearch_init_run.py --mode exec ...` already archives the default `research-results.tsv` and `autoresearch-state.json` files to `research-results.prev.tsv` and `autoresearch-state.prev.json` before it initializes the fresh run.
+When the bundled helper scripts drive `Mode: exec`, do not manually rename old repo-root artifacts first. `autoresearch_init_run.py --mode exec ...` already archives the default `research-results.tsv` and `autoresearch-state.json` files to `research-results.prev.tsv` and `autoresearch-state.prev.json` before it initializes the fresh run. Keep `autoresearch_exec_state.py --cleanup` as the final serial helper step, after the last `autoresearch_record_iteration.py` / `autoresearch_select_parallel_batch.py` call.
 
 See `references/exec-workflow.md` for full details and CI integration examples.
 

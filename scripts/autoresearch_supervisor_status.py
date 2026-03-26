@@ -12,6 +12,7 @@ from autoresearch_helpers import (
     AutoresearchError,
     compare_summary_to_state,
     decimal_to_json_number,
+    evaluate_required_label_gate,
     normalize_labels,
     parse_decimal,
     parse_results_log,
@@ -212,11 +213,12 @@ def stop_condition_gate_gap_reason(
     if not compare_metric(current_metric, target, operator):
         return None
 
-    required_labels = normalize_labels(config.get("required_stop_labels", []))
+    required_labels, retained_labels, missing = evaluate_required_label_gate(
+        config.get("required_stop_labels", []),
+        retained_labels,
+    )
     if not required_labels:
         return None
-
-    missing = [label for label in required_labels if label not in retained_labels]
     if not missing:
         return None
     retained_text = ", ".join(retained_labels) if retained_labels else "<none>"
@@ -246,9 +248,11 @@ def goal_reached_reason(
 
     operator, target, description = rule
     if compare_metric(current_metric, target, operator):
-        required_labels = normalize_labels(config.get("required_stop_labels", []))
+        required_labels, retained_labels, missing = evaluate_required_label_gate(
+            config.get("required_stop_labels", []),
+            retained_labels,
+        )
         if required_labels:
-            missing = [label for label in required_labels if label not in retained_labels]
             if missing:
                 return None
             return (
@@ -269,6 +273,7 @@ def determine_base_decision(
     last_status = state.get("last_status")
     iteration = as_int(state.get("iteration"))
     iterations_cap = config.get("iterations")
+    pivot_count = as_int(state.get("pivot_count"))
 
     if mode == "exec":
         reasons.append("Exec mode is one-shot and should not be relaunched automatically.")
@@ -291,6 +296,13 @@ def determine_base_decision(
             f"Configured iteration cap reached ({iteration} >= {iterations_cap})."
         )
         return STOP, "iteration_cap_reached", "terminal", reasons
+
+    if pivot_count >= 3:
+        reasons.append(
+            "Three strategic pivots were recorded without a keep. Further unattended relaunches "
+            "would likely waste effort; the run needs human review, broader scope, or a better metric."
+        )
+        return NEEDS_HUMAN, "soft_blocked", "soft_blocked", reasons
 
     reasons.append(
         f"Last recorded status is {last_status!r}; the loop remains resumable and should continue in a fresh Codex session."

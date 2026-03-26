@@ -76,7 +76,7 @@ Orchestrator (main agent, main worktree)
 
 During the wizard phase (before "go"), ask:
 
-- "Test multiple ideas in parallel? (faster but uses more CPU/disk -- not available for GPU/NPU workloads)"
+- "Test multiple ideas in parallel? (faster but uses more CPU/disk; GPU/NPU runs only support this when enough free devices are available)"
 - Default: serial (single hypothesis per iteration)
 
 This question is asked **once, before launch**. After the user says "go", parallel mode is locked in and cannot be changed mid-run. This respects the two-phase boundary.
@@ -251,7 +251,7 @@ When falling back:
 
 - **interaction-wizard.md:** Add parallel mode question to wizard (before "go" only).
 - **autonomous-loop-protocol.md:** Phase 3 (Ideate) generates multiple hypotheses when parallel is active.
-- **environment-awareness.md:** Resource probes inform parallelism limits and GPU/NPU detection disables parallel mode.
+- **environment-awareness.md:** Resource probes inform parallelism limits; for GPU/NPU workloads they only permit parallel mode when enough free devices exist.
 - **pivot-protocol.md:** A parallel batch with zero keeps counts as one discard toward pivot thresholds.
 - **lessons-protocol.md:** Keep worker rows as audit detail and append the resulting interactive keep lesson only for the authoritative selected main row.
 - **health-check-protocol.md:** `autoresearch_select_parallel_batch.py` runs the lightweight health + worktree preflight before it merges a completed batch into the authoritative TSV/JSON state.

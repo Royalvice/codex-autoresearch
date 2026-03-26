@@ -88,5 +88,5 @@ Optionally append to a search log section in the results TSV comments:
 If the environment does not support web search (no internet, restricted sandbox), or the user opts out:
 
 1. Skip Level 3 escalation in the pivot protocol.
-2. Proceed directly from Level 2 (PIVOT) to Level 4 (soft blocker warning) after 3 PIVOTs.
+2. Proceed directly from Level 2 (PIVOT) to Level 4 (soft blocker handoff) after 3 PIVOTs.
 3. Log: `[SEARCH SKIPPED] web search unavailable or disabled`.

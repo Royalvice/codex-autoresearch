@@ -22,6 +22,7 @@ When this file mentions `<skill-root>`, it means the directory containing the lo
 8. The mandatory confirmation round must never collapse into a bare "foreground/background + go" prompt. Even if the only unresolved choice is run mode, first show a short repo-grounded summary of the confirmed goal, metric, verify path, and next step.
 9. The user should never see raw field names (Goal, Scope, Metric, Direction, Verify, Guard). Translate everything into natural conversation.
 10. After the user approves the summary, follow the chosen run mode directly from the same skill entrypoint. Foreground stays in the current session; background persists the confirmed launch manifest and starts the runtime controller. Do not tell the user to switch to a different wrapper command.
+11. End the confirmation summary with a short runtime checklist that reinforces execution order: baseline first, then initialize artifacts, and always log a completed experiment before starting the next one.
 
 ## Clarification Protocol
 
@@ -62,11 +63,17 @@ Before launching, present a structured confirmation summary. The user should be 
 - Metric: `any` occurrence count (current: 47), direction: lower
 - Verify: `grep -r ":\s*any" src/ --include="*.ts" | wc -l`
 - Guard: `tsc --noEmit` must still pass
+- Required keep labels: `production-path` (only when retained results must come from a specific mechanism/path)
 - Required stop labels: `production-path`, `real-backend` (when structural success criteria matter)
 
 **Need to confirm**
 - Run until all gone, or cap at N iterations?
 - Any other safety checks beyond tsc?
+
+**Runtime checklist**
+- Baseline first, then initialize results/state.
+- Log every completed experiment before the next one starts.
+- Use helper scripts for authoritative row/state updates.
 
 **Next step**
 - Choose foreground or background, then reply "go" to start, or tell me what to change.
@@ -80,11 +87,17 @@ Before launching, present a structured confirmation summary. The user should be 
 - 指标：any 出现次数（当前 47），方向：降低
 - 验证：`grep -r ":\s*any" src/ --include="*.ts" | wc -l`
 - 守护：`tsc --noEmit` 必须继续通过
+- 必需保留标签：`production-path`（仅在保留结果必须来自特定机制/路径时展示）
 - 必需停止标签：`production-path`、`real-backend`（仅在存在结构性成功条件时展示）
 
 **还需确认**
 - 跑到全部消除，还是限制在 N 次迭代？
 - 除了 tsc 还有其他安全检查吗？
+
+**运行时清单**
+- 先做 baseline，再初始化结果/状态文件。
+- 每完成一次实验，必须先落表，再开始下一次。
+- 结果行和状态更新都交给 helper 脚本。
 
 **下一步**
 - 先选择 foreground 或 background，再回复 "go" 启动，或告诉我要改什么。
@@ -98,7 +111,8 @@ Before launching, present a structured confirmation summary. The user should be 
 4. The "Need to confirm" section should only contain genuine blockers, not padding.
 5. End with a clear call to action.
 6. If run mode is still undecided, list it under "Need to confirm" and then ask the user to choose foreground or background. Do not omit the summary just because run mode is the only remaining blocker.
-7. Only show "Required stop labels" when the goal truly has a structural success requirement in addition to the numeric target.
+7. Only show "Required keep labels" and/or "Required stop labels" when the goal truly has structural success requirements beyond the numeric target.
+8. Keep the runtime checklist short. It exists to reinforce execution order, not to restate the whole protocol.
 
 The user replies "go", "start", "launch", or corrects something. No field names, no YAML, no structured input required.
 
@@ -110,8 +124,10 @@ When the user replies with launch approval (`go`, `start`, `launch`, or an equiv
 2. If the user chose **foreground**, keep the loop in the current Codex session:
    - initialize `research-results.tsv` and `autoresearch-state.json`
    - do not create `autoresearch-launch.json`, `autoresearch-runtime.json`, or `autoresearch-runtime.log`
+   - keep the runtime checklist active: baseline first, then log every completed experiment before the next one starts
    - report that the foreground run has started in the current session
 3. If the user chose **background**, persist the confirmed config to `autoresearch-launch.json`, start the detached runtime controller, and report where the runtime/log artifacts live.
+   - the nested background session must receive the same runtime checklist, especially the "log before the next experiment" rule
 4. Do not ask the user to rerun a shell wrapper command just to continue overnight.
 
 If the chosen path is **Fresh start** after recovery analysis, the handoff should be:
@@ -138,7 +154,7 @@ Categorized questions for common autoresearch scenarios. Pick 1-3 that are actua
 - "What's your target -- 80%? 90%? Or just push as high as I can?"
 - "I see MFU is logged in the training output. Are we targeting a specific number, or just higher-is-better?"
 - "The verify command currently measures response time. Should I track p50, p95, or p99?"
-- "If I hit the target with the wrong mechanism or path, should I keep going? I can require structured stop labels so the run only stops when the retained keep matches the mechanism you care about, for example `production-path`, `root-cause`, or `real-backend`."
+- "If I hit the target with the wrong mechanism or path, should I keep going? I can require structured keep labels so only the right mechanism can enter retained state, and structured stop labels so the run only stops when the retained keep matches the mechanism you care about."
 
 ### Verification & Guard
 
@@ -201,6 +217,7 @@ The wizard internally maps the conversation to these fields (the user never sees
 - Verify -- Codex proposes a command based on repo tooling
 - Guard (optional) -- Codex suggests if there's a regression risk
 - Iterations (optional) -- asked only if user wants bounded run
+- Required keep labels (optional) -- ask only when only a specific mechanism, path, backend, or root-cause signal should be allowed into retained state
 - Required stop labels (optional) -- ask only when the run should stop on a specific mechanism, path, backend, or root-cause signal in addition to the metric target
 - Rollback (optional) -- ask only if destructive rollback may be needed for unattended execution; otherwise default to non-destructive revert
 - Parallel (optional) -- ask if environment supports it (CPU >= 4, RAM >= 8GB)

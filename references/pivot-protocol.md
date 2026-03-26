@@ -50,7 +50,7 @@ Actions:
 3. Treat search results as hypotheses -- still verify mechanically.
 4. Log the search as status `search` in the results TSV.
 
-### Level 4: Soft Blocker Warning (3 PIVOTs without improvement)
+### Level 4: Soft Blocker Handoff (3 PIVOTs without improvement)
 
 Trigger: 3 PIVOT decisions without any keep since the first pivot.
 
@@ -59,11 +59,11 @@ Actions:
    ```
    [WARNING] 3 strategy pivots without improvement. The goal may require
    manual intervention, broader scope, or a different metric.
-   Continuing with best-effort attempts.
+   Stopping the current run and reporting a soft blocker.
    ```
-2. Continue iterating (do not stop -- the user may be asleep).
-3. Switch to increasingly bold, architecture-level changes.
-4. Log each subsequent attempt with a `[SOFT-BLOCKER]` prefix in the description column. Note: `soft-blocker` is a description annotation, not a status value. The `status` column should reflect the actual outcome (`discard`, `keep`, `crash`, etc.).
+2. Stop the current run after the current iteration instead of escalating indefinitely.
+3. Report that the next step likely needs human input, broader scope, a better metric, or a deliberate reframing of the goal.
+4. Do not invent a new TSV status for this handoff. The authoritative signal remains the accumulated `pivot_count`, the latest logged iteration, and the terminal summary / supervisor decision.
 
 ## Counting Rules
 
@@ -92,7 +92,7 @@ Actions:
 The "2 PIVOTs without improvement" threshold for Level 3 counts PIVOT decisions only:
 - A PIVOT decision increments the pivot counter.
 - A `keep` after a PIVOT resets the pivot counter to zero.
-- Consecutive PIVOTs without any intervening `keep` accumulate toward Level 3 and Level 4.
+- Consecutive PIVOTs without any intervening `keep` accumulate toward Level 3 and the Level 4 soft-blocker handoff.
 
 ## Logging
 

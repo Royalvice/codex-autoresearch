@@ -49,10 +49,13 @@ Run these probes once at the start of a run, before the first iteration.
 
 ### 5. Network Availability
 
+Respect the confirmed wizard choice first. If the user selected an offline run or `web_search=disabled`, do not send any outbound probe just to "check" connectivity. Record the policy as disabled and stay on the offline path from `references/web-search-protocol.md`.
+
 | Probe | Command | Interpretation |
 |-------|---------|----------------|
-| Outbound HTTP | `curl -s --max-time 3 -o /dev/null -w '%{http_code}' https://httpbin.org/get 2>/dev/null` | web search available |
-| Git remote | `git remote -v 2>/dev/null` | push/pull possible |
+| Web policy | read confirmed `web_search` config / launch manifest | whether external network access is even allowed for this run |
+| Git remote | `git remote -v 2>/dev/null` | remotes configured; does not prove outbound access |
+| Optional outbound HTTP | `curl -s --max-time 3 -o /dev/null -w '%{http_code}' https://httpbin.org/get 2>/dev/null` | run only when `web_search=enabled` and an active external probe is acceptable |
 
 ## Environment Profile
 
@@ -72,6 +75,8 @@ node = 20.10.0
 container = docker
 network = available
 ```
+
+If the run is intentionally offline, prefer `network = disabled_by_policy`. If outbound access is unknown because active probing was skipped, prefer `network = unknown` instead of forcing a real network call.
 
 ## Hypothesis Filtering
 
