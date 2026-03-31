@@ -16,6 +16,7 @@ from autoresearch_helpers import (
     build_launch_manifest,
     build_runtime_payload,
     command_is_executable,
+    default_hook_context_path,
     default_launch_manifest_path,
     default_runtime_log_path,
     default_runtime_state_path,
@@ -27,6 +28,7 @@ from autoresearch_helpers import (
     utc_now,
     write_json_atomic,
 )
+from autoresearch_hook_context import update_hook_context_pointer, write_hook_context_pointer
 from autoresearch_launch_gate import evaluate_launch_context, pid_is_alive
 from autoresearch_preflight import evaluate_managed_repos_preflight
 from autoresearch_resume_prompt import build_runtime_prompt
@@ -52,6 +54,11 @@ from autoresearch_project_docs import project_system_status
 STOP_POLL_INTERVAL_SECONDS = 0.1
 STOP_KILL_WAIT_SECONDS = 1.0
 WINDOWS_LAUNCH_SUFFIXES = (".cmd", ".bat", ".exe")
+HOOK_ACTIVE_ENV = "AUTORESEARCH_HOOK_ACTIVE"
+HOOK_RESULTS_PATH_ENV = "AUTORESEARCH_HOOK_RESULTS_PATH"
+HOOK_STATE_PATH_ENV = "AUTORESEARCH_HOOK_STATE_PATH"
+HOOK_LAUNCH_PATH_ENV = "AUTORESEARCH_HOOK_LAUNCH_PATH"
+HOOK_RUNTIME_PATH_ENV = "AUTORESEARCH_HOOK_RUNTIME_PATH"
 
 
 def resolve_codex_bin_path(codex_bin: str) -> str:
@@ -156,6 +163,7 @@ def build_codex_exec_command(
 
 def mark_runtime_needs_human(
     *,
+    repo: Path,
     runtime: dict[str, Any],
     runtime_path: Path,
     launch_context: dict[str, Any],
@@ -172,6 +180,7 @@ def mark_runtime_needs_human(
     else:
         runtime.pop("last_error", None)
     persist_runtime(runtime_path, runtime)
+    update_hook_context_pointer(repo=repo, active=False, session_mode="background")
     return 2
 
 
@@ -403,6 +412,9 @@ def archive_interactive_fresh_start_artifacts(
     archived_log = archive_path_to_prev(log_path)
     if archived_log is not None:
         archived.append(str(archived_log))
+    archived_hook_context = archive_path_to_prev(default_hook_context_path(repo))
+    if archived_hook_context is not None:
+        archived.append(str(archived_hook_context))
     return archived
 
 
@@ -537,6 +549,15 @@ def start_runtime(args: argparse.Namespace, *, runner_path: Path) -> dict[str, A
     runtime["last_health_check"] = preflight["health_check"]
     runtime["last_commit_gate"] = preflight["commit_gate"]
     persist_runtime(runtime_path, runtime)
+    write_hook_context_pointer(
+        repo=repo,
+        active=True,
+        session_mode="background",
+        results_path=results_path.resolve(),
+        state_path=state_path.resolve(),
+        launch_path=launch_path.resolve(),
+        runtime_path=runtime_path.resolve(),
+    )
     return maybe_attach_progress_snapshot({
         "status": "running",
         "pid": process.pid,
@@ -610,6 +631,25 @@ def run_runtime(args: argparse.Namespace) -> int:
             command=[],
         )
         persist_runtime(runtime_path, runtime)
+        write_hook_context_pointer(
+            repo=repo,
+            active=True,
+            session_mode="background",
+            results_path=results_path.resolve(),
+            state_path=resolve_state_path_for_log(state_path_arg, None, cwd=repo).resolve(),
+            launch_path=launch_path.resolve(),
+            runtime_path=runtime_path.resolve(),
+        )
+    else:
+        update_hook_context_pointer(
+            repo=repo,
+            active=True,
+            session_mode="background",
+            results_path=results_path.resolve(),
+            state_path=resolve_state_path_for_log(state_path_arg, None, cwd=repo).resolve(),
+            launch_path=launch_path.resolve(),
+            runtime_path=runtime_path.resolve(),
+        )
 
     execution_policy = str(
         launch_manifest.get("config", {}).get("execution_policy") or DEFAULT_EXECUTION_POLICY
@@ -635,6 +675,7 @@ def run_runtime(args: argparse.Namespace) -> int:
             runtime["last_reason"] = launch_context["reason"]
             runtime["launch_context"] = launch_context
             persist_runtime(runtime_path, runtime)
+            update_hook_context_pointer(repo=repo, active=False, session_mode="background")
             return 2
 
         preflight = evaluate_runtime_preflight(
@@ -648,6 +689,7 @@ def run_runtime(args: argparse.Namespace) -> int:
         runtime["last_commit_gate"] = preflight["commit_gate"]
         if preflight["decision"] == "block":
             return mark_runtime_needs_human(
+                repo=repo,
                 runtime=runtime,
                 runtime_path=runtime_path,
                 launch_context=launch_context,
@@ -672,6 +714,7 @@ def run_runtime(args: argparse.Namespace) -> int:
         runtime.pop("last_error", None)
         if not command_is_executable(resolved_codex_bin):
             return mark_runtime_needs_human(
+                repo=repo,
                 runtime=runtime,
                 runtime_path=runtime_path,
                 launch_context=launch_context,
@@ -684,14 +727,22 @@ def run_runtime(args: argparse.Namespace) -> int:
             repo=repo,
         )
         try:
+            codex_env = dict(os.environ)
+            codex_env[HOOK_ACTIVE_ENV] = "1"
+            codex_env[HOOK_RESULTS_PATH_ENV] = str(results_path)
+            codex_env[HOOK_STATE_PATH_ENV] = str(state_path)
+            codex_env[HOOK_LAUNCH_PATH_ENV] = str(launch_path)
+            codex_env[HOOK_RUNTIME_PATH_ENV] = str(runtime_path)
             codex_exit = subprocess.run(
                 codex_cmd,
                 cwd=repo,
                 input=prompt_text,
                 text=True,
+                env=codex_env,
             ).returncode
         except OSError as exc:
             return mark_runtime_needs_human(
+                repo=repo,
                 runtime=runtime,
                 runtime_path=runtime_path,
                 launch_context=launch_context,
@@ -729,6 +780,7 @@ def run_runtime(args: argparse.Namespace) -> int:
             runtime["status"] = "running"
             runtime["terminal_reason"] = "none"
             persist_runtime(runtime_path, runtime)
+            update_hook_context_pointer(repo=repo, active=True, session_mode="background")
             time.sleep(args.sleep_seconds)
             continue
 
@@ -741,6 +793,7 @@ def run_runtime(args: argparse.Namespace) -> int:
         runtime["status"] = "terminal" if decision == "stop" else "needs_human"
         runtime["terminal_reason"] = reason
         persist_runtime(runtime_path, runtime)
+        update_hook_context_pointer(repo=repo, active=False, session_mode="background")
         return 0 if decision == "stop" else 2
 
 
@@ -784,6 +837,7 @@ def stop_runtime(args: argparse.Namespace) -> dict[str, Any]:
                 runtime["last_reason"] = "stop_failed"
                 runtime["last_error"] = error
                 persist_runtime(runtime_path, runtime)
+                update_hook_context_pointer(repo=repo, active=False, session_mode="background")
                 return maybe_attach_progress_snapshot({
                     "status": "needs_human",
                     "runtime_path": str(runtime_path),
@@ -801,6 +855,7 @@ def stop_runtime(args: argparse.Namespace) -> dict[str, Any]:
     runtime["terminal_reason"] = "user_stopped"
     runtime.pop("last_error", None)
     persist_runtime(runtime_path, runtime)
+    update_hook_context_pointer(repo=repo, active=False, session_mode="background")
     return maybe_attach_progress_snapshot({
         "status": "stopped",
         "runtime_path": str(runtime_path),

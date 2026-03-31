@@ -69,6 +69,23 @@ Expected behavior:
 - loads the relevant workflow for the request,
 - and collects any missing fields via the wizard.
 
+## Optional User-Level Hooks
+
+`codex-autoresearch` also ships an optional user-level hook installer for long-running background workflows:
+
+```bash
+python3 <skill-root>/scripts/autoresearch_hooks_ctl.py status
+python3 <skill-root>/scripts/autoresearch_hooks_ctl.py install
+python3 <skill-root>/scripts/autoresearch_hooks_ctl.py uninstall
+```
+
+Behavior:
+
+- Hooks are installed into the current `CODEX_HOME`, not into an individual repo.
+- The managed hook payload consists of `SessionStart` and `Stop` handlers plus a small manifest under `CODEX_HOME/autoresearch-hooks/`.
+- Active repos expose their current run through `autoresearch-hook-context.json`, which lets future Codex sessions recover the right results/state/launch/runtime paths.
+- Windows intentionally refuses `install` and `uninstall` today. The main runtime/controller features still work on Windows without these hooks.
+
 ## Updating
 
 If installed by copy: re-clone and replace the installed folder.

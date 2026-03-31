@@ -59,6 +59,49 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 ["real-backend", "production-path"],
             )
 
+    def test_init_run_writes_foreground_hook_context_pointer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            results_path = tmpdir / "artifacts" / "research-results.tsv"
+            state_path = tmpdir / "artifacts" / "autoresearch-state.json"
+            subprocess.run(["git", "init", "-q"], cwd=tmpdir, check=True)
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(results_path),
+                "--state-path",
+                str(state_path),
+                "--mode",
+                "loop",
+                "--session-mode",
+                "foreground",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "python3 -c pass",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "base111",
+                "--baseline-description",
+                "baseline failures",
+            )
+
+            pointer = json.loads((tmpdir / "autoresearch-hook-context.json").read_text(encoding="utf-8"))
+            self.assertTrue(pointer["active"])
+            self.assertEqual(pointer["session_mode"], "foreground")
+            self.assertEqual(pointer["results_path"], "artifacts/research-results.tsv")
+            self.assertEqual(pointer["state_path"], "artifacts/autoresearch-state.json")
+            self.assertIsNone(pointer["launch_path"])
+            self.assertIsNone(pointer["runtime_path"])
+
     def test_runtime_launch_command_atomically_creates_manifest_and_starts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
@@ -92,6 +135,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             old_launch = tmpdir / "autoresearch-launch.json"
             old_runtime = tmpdir / "autoresearch-runtime.json"
             old_runtime_log = tmpdir / "autoresearch-runtime.log"
+            old_hook_context = tmpdir / "autoresearch-hook-context.json"
 
             old_results.write_text(
                 "iteration\tcommit\tmetric\tdelta\tguard\tstatus\tdescription\n"
@@ -173,6 +217,23 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 encoding="utf-8",
             )
             old_runtime_log.write_text("old runtime log\n", encoding="utf-8")
+            old_hook_context.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "active": True,
+                        "session_mode": "background",
+                        "results_path": "research-results.tsv",
+                        "state_path": "autoresearch-state.json",
+                        "launch_path": "autoresearch-launch.json",
+                        "runtime_path": "autoresearch-runtime.json",
+                        "updated_at": "2026-03-21T00:00:00Z",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
 
             launched = self.launch_runtime(
                 tmpdir,
@@ -191,6 +252,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                         str((tmpdir / "autoresearch-launch.prev.json").resolve()),
                         str((tmpdir / "autoresearch-runtime.prev.json").resolve()),
                         str((tmpdir / "autoresearch-runtime.prev.log").resolve()),
+                        str((tmpdir / "autoresearch-hook-context.prev.json").resolve()),
                     ]
                 ),
             )
@@ -199,6 +261,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             self.assertTrue((tmpdir / "autoresearch-launch.prev.json").exists())
             self.assertTrue((tmpdir / "autoresearch-runtime.prev.json").exists())
             self.assertTrue((tmpdir / "autoresearch-runtime.prev.log").exists())
+            self.assertTrue((tmpdir / "autoresearch-hook-context.prev.json").exists())
             manifest = json.loads((tmpdir / "autoresearch-launch.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["original_goal"], "New goal")
             self.assertEqual(manifest["config"]["session_mode"], "background")
@@ -256,6 +319,13 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             state = json.loads((tmpdir / "autoresearch-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["config"]["session_mode"], "background")
             self.assertEqual(state["config"]["execution_policy"], "workspace_write")
+            pointer = json.loads((tmpdir / "autoresearch-hook-context.json").read_text(encoding="utf-8"))
+            self.assertTrue(pointer["active"])
+            self.assertEqual(pointer["session_mode"], "background")
+            self.assertEqual(pointer["results_path"], "research-results.tsv")
+            self.assertEqual(pointer["state_path"], "autoresearch-state.json")
+            self.assertEqual(pointer["launch_path"], "autoresearch-launch.json")
+            self.assertEqual(pointer["runtime_path"], "autoresearch-runtime.json")
 
             stopped = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -264,6 +334,8 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 str(tmpdir),
             )
             self.assertEqual(stopped["status"], "stopped")
+            pointer = json.loads((tmpdir / "autoresearch-hook-context.json").read_text(encoding="utf-8"))
+            self.assertFalse(pointer["active"])
 
     def test_multi_repo_background_foreground_background_switch_keeps_shared_state_consistent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools_tmp:
@@ -346,6 +418,9 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             self.assertNotIn("execution_policy", state["config"])
             self.assertTrue((primary / "autoresearch-launch.json").exists())
             self.assertTrue((primary / "autoresearch-runtime.json").exists())
+            pointer = json.loads((primary / "autoresearch-hook-context.json").read_text(encoding="utf-8"))
+            self.assertTrue(pointer["active"])
+            self.assertEqual(pointer["session_mode"], "foreground")
 
             restarted = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -360,6 +435,9 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             state = json.loads((primary / "autoresearch-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["config"]["session_mode"], "background")
             self.assertEqual(state["config"]["execution_policy"], "workspace_write")
+            pointer = json.loads((primary / "autoresearch-hook-context.json").read_text(encoding="utf-8"))
+            self.assertTrue(pointer["active"])
+            self.assertEqual(pointer["session_mode"], "background")
 
             stopped = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -368,6 +446,8 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 str(primary),
             )
             self.assertEqual(stopped["status"], "stopped")
+            pointer = json.loads((primary / "autoresearch-hook-context.json").read_text(encoding="utf-8"))
+            self.assertFalse(pointer["active"])
 
     def test_runtime_launch_fresh_start_in_git_repo_accepts_prev_archives(self) -> None:
         with tempfile.TemporaryDirectory() as repo_tmp, tempfile.TemporaryDirectory() as tool_tmp:
@@ -387,6 +467,23 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             )
             (repo / "autoresearch-state.json").write_text("{}\n", encoding="utf-8")
             (repo / "autoresearch-launch.json").write_text("{}\n", encoding="utf-8")
+            (repo / "autoresearch-hook-context.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "active": True,
+                        "session_mode": "background",
+                        "results_path": "research-results.tsv",
+                        "state_path": "autoresearch-state.json",
+                        "launch_path": "autoresearch-launch.json",
+                        "runtime_path": "autoresearch-runtime.json",
+                        "updated_at": "2026-03-21T00:00:00Z",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
             (repo / "autoresearch-runtime.json").write_text(
                 json.dumps(
                     {
@@ -427,6 +524,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             self.assertTrue((repo / "autoresearch-state.prev.json").exists())
             self.assertTrue((repo / "autoresearch-launch.prev.json").exists())
             self.assertTrue((repo / "autoresearch-runtime.prev.json").exists())
+            self.assertTrue((repo / "autoresearch-hook-context.prev.json").exists())
 
             stopped = self.run_script(
                 "autoresearch_runtime_ctl.py",
@@ -791,6 +889,9 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             self.assertEqual(runtime["status"], "needs_human")
             self.assertEqual(runtime["terminal_reason"], "codex_exec_unavailable")
             self.assertIn("Codex executable is not available", runtime["last_error"])
+            pointer = json.loads((tmpdir / "autoresearch-hook-context.json").read_text(encoding="utf-8"))
+            self.assertFalse(pointer["active"])
+            self.assertEqual(pointer["session_mode"], "background")
 
             status = self.run_script(
                 "autoresearch_runtime_ctl.py",

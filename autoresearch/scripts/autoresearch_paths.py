@@ -12,6 +12,7 @@ from autoresearch_core import (
     AUTORESEARCH_OWNED_BASENAMES,
     EXEC_SCRATCH_ROOT,
     AutoresearchError,
+    HOOK_CONTEXT_NAME,
     LESSONS_FILE_NAME,
     LAUNCH_MANIFEST_NAME,
     ParsedLog,
@@ -74,6 +75,10 @@ def default_runtime_state_path(cwd: Path | None = None) -> Path:
 
 def default_runtime_log_path(cwd: Path | None = None) -> Path:
     return find_repo_root(cwd) / RUNTIME_LOG_NAME
+
+
+def default_hook_context_path(cwd: Path | None = None) -> Path:
+    return find_repo_root(cwd) / HOOK_CONTEXT_NAME
 
 
 def default_lessons_path(cwd: Path | None = None) -> Path:

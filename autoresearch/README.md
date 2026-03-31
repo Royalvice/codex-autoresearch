@@ -495,6 +495,7 @@ Every iteration is recorded in complementary artifacts:
 - **`autoresearch-launch.json`** -- confirmed launch manifest for background runs only
 - **`autoresearch-runtime.json`** -- background runtime control state (PID, status, last decision)
 - **`autoresearch-runtime.log`** -- background runtime log for long runs
+- **`autoresearch-hook-context.json`** -- repo-local pointer used by optional Codex lifecycle hooks to recover the active run context across future sessions
 
 In `exec` mode, the state snapshot is scratch-only under `/tmp/codex-autoresearch-exec/...`. The exec workflow is responsible for removing that scratch JSON before exit, typically via `autoresearch_exec_state.py --cleanup`. Run that cleanup only after the final stateful helper call has finished. The default helper flow also archives prior repo-root `research-results.tsv` and `autoresearch-state.json` to `research-results.prev.tsv` and `autoresearch-state.prev.json` automatically before the new exec run starts.
 
@@ -537,6 +538,8 @@ Human-facing usage now has a single entrypoint: **`$codex-autoresearch`**.
 - If the background runtime cannot launch that `codex exec` session at all, it transitions to `needs_human` instead of silently falling back to an idle state.
 - If an explicit stop request cannot actually terminate the detached runner, the background runtime also transitions to `needs_human` instead of pretending the run is fully stopped.
 - Before the background runtime starts a session or relaunches one, it runs a script-level preflight: `autoresearch_health_check.py` for integrity checks and `autoresearch_commit_gate.py` for scope-aware git safety.
+- Background mode can optionally install user-level Codex lifecycle hooks through `autoresearch_hooks_ctl.py`. Those hooks are an internal power-user aid for long-running repos: they read `autoresearch-hook-context.json`, add resume context on `SessionStart`, and keep the pointer inactive once a run becomes terminal or needs human attention.
+- Hook installation is per-user `CODEX_HOME`, not per repo. Windows intentionally refuses hook installation today, but the runtime/controller layer still works without hooks and still maintains the repo-local hook context pointer for future compatible environments.
 - `status` and `stop` are background-only controls. Foreground runs stay in the current session and therefore do not use runtime controller artifacts.
 - `Mode: exec` remains the advanced / CI path for fully specified non-interactive runs.
 
@@ -597,6 +600,11 @@ codex-autoresearch/
     autoresearch_resume_prompt.py   # build the runtime-managed prompt from saved config
     autoresearch_runtime_ctl.py     # launch / create-launch / start / status / stop runtime controller
     autoresearch_set_session_mode.py# internal helper for scripted interactive mode-switch recovery
+    autoresearch_hooks_ctl.py       # install / inspect / remove optional user-level Codex hooks
+    autoresearch_hook_context.py    # repo-local hook context pointer persistence
+    autoresearch_hook_common.py     # shared SessionStart/Stop hook context resolver
+    autoresearch_hook_session_start.py # emit additional SessionStart context for active runs
+    autoresearch_hook_stop.py       # guard stop behavior and retire hook pointers on terminal runs
     autoresearch_commit_gate.py     # git/artifact/rollback gate
     autoresearch_decision.py        # structured keep/discard/crash policy helpers
     autoresearch_health_check.py    # executable health checks
